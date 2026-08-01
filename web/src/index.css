@@ -1,0 +1,70 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+@import "tailwindcss";
+
+:root, :root.light {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  --bg: #F8FAFC;
+  --sidebar: #FFFFFF;
+  --list: #F1F5F9;
+  --accent: #2563EB;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --border: rgba(0, 0, 0, 0.08);
+  --glass: rgba(255, 255, 255, 0.85);
+  color-scheme: light;
+}
+
+:root.dark {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  --bg: #0F111A;
+  --sidebar: #1A1D2B;
+  --list: #141724;
+  --accent: #3b82f6;
+  --text-primary: #FFFFFF;
+  --text-secondary: #94a3b8;
+  --border: rgba(255, 255, 255, 0.05);
+  --glass: rgba(26, 29, 43, 0.8);
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  margin: 0;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Sophisticated Dark / Light Theme Custom Classes */
+.sophisticated-chat-bg {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 100%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+

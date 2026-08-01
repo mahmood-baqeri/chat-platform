@@ -1,0 +1,6 @@
+{
+  "name": "پلتفرم چت حرفه‌ای | Chat Platform",
+  "description": "پلتفرم چت پیشرفته و مقیاس‌پذیر با قابلیت چت خصوصی، گروه، کانال، پنل مدیریت، وب‌سوکت real-time، OTP، تم تاریک/روشن و تنظیمات پیشرفته سیستم",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
