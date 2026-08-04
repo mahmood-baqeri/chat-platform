@@ -3,6 +3,7 @@ import { User, Chat, Message, SystemSettings, UserSession, MessageType } from ".
 import { api } from "../services/api";
 import { wsClient } from "../services/websocket";
 import { playNotificationSound as playAudioSound } from "../services/sound";
+import { requestAllPermissionsAfterLogin } from "../utils/permissions";
 
 export type ThemeMode = "dark" | "light" | "system";
 
@@ -54,6 +55,10 @@ interface ChatContextType {
   hasMoreMessages: boolean;
   isLoadingMoreMessages: boolean;
   loadMoreMessages: () => Promise<void>;
+  hasMoreAfter: boolean;
+  isLoadingNewerMessages: boolean;
+  loadNewerMessages: () => Promise<void>;
+  firstUnreadMessageId: string | null;
   
   // Menu state management
   activeOpenMenuId: string | null;
@@ -70,7 +75,7 @@ interface ChatContextType {
 
   // Actions
   selectChat: (chatId: string) => void;
-  sendMessage: (data: { content: string; type?: MessageType; attachments?: any[]; replyToId?: string; forwardedFrom?: any; scheduledFor?: string }) => Promise<void>;
+  sendMessage: (data: { content: string; type?: MessageType; attachments?: any[]; replyToId?: string; forwardedFrom?: any; scheduledFor?: string }, targetChatId?: string) => Promise<void>;
   editMessage: (messageId: string, content: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
@@ -87,12 +92,14 @@ interface ChatContextType {
   setDraft: (chatId: string, text: string) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  markMessagesAsRead: (messageIds: string[]) => Promise<void>;
 }
 
 const defaultSettings: SystemSettings = {
   registrationEnabled: true,
   loginEnabled: true,
   otpEnabled: true,
+  sessionTimeoutMinutes: 1440,
   channelsEnabled: true,
   groupsEnabled: true,
   callsEnabled: false,
@@ -217,6 +224,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Pagination State
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
+  const [hasMoreAfter, setHasMoreAfter] = useState(false);
+  const [isLoadingNewerMessages, setIsLoadingNewerMessages] = useState(false);
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
 
   // Active Menu ID (Ensures only one 3-dots menu open at a time)
   const [activeOpenMenuId, setActiveOpenMenuId] = useState<string | null>(null);
@@ -305,26 +315,55 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const s = await api.getSettings().catch(() => defaultSettings);
         if (isMounted) setSystemSettings(s);
 
-        try {
-          const { user, sessions } = await api.getMe();
-          if (isMounted) {
-            setCurrentUser(user);
-            setSessions(sessions);
-            wsClient.connect(user.id);
-            const chatList = await api.getChats(user.id);
-            setChats(chatList);
-            if (chatList.length > 0 && !activeChat) {
-              setActiveChat(chatList[0]);
+        const savedToken = localStorage.getItem("app_auth_token");
+        const savedTimestamp = localStorage.getItem("app_token_timestamp");
+        const timeoutMins = s.sessionTimeoutMinutes || 1440;
+
+        let isExpired = false;
+        if (savedTimestamp) {
+          const elapsedMins = (Date.now() - Number(savedTimestamp)) / (1000 * 60);
+          if (elapsedMins > timeoutMins) {
+            isExpired = true;
+          }
+        }
+
+        if (savedToken && !isExpired) {
+          try {
+            const { user, sessions } = await api.getMe(savedToken);
+            if (isMounted) {
+              setCurrentUser(user);
+              setSessions(sessions);
+              wsClient.connect(user.id);
+              const chatList = await api.getChats(user.id);
+              setChats(chatList);
+              if (chatList.length > 0 && !activeChat) {
+                setActiveChat(chatList[0]);
+              }
+            }
+          } catch (err) {
+            console.error("Session restoration error:", err);
+            localStorage.removeItem("app_auth_token");
+            localStorage.removeItem("app_token_timestamp");
+            localStorage.removeItem("app_user_id");
+            if (isMounted) {
+              setCurrentUser(null);
+              setShowAuthModal(true);
             }
           }
-        } catch (err) {
-          // Guest or unauthenticated
+        } else {
+          localStorage.removeItem("app_auth_token");
+          localStorage.removeItem("app_token_timestamp");
+          localStorage.removeItem("app_user_id");
+          if (isMounted) {
+            setCurrentUser(null);
+            setShowAuthModal(true);
+          }
         }
       } finally {
         if (isMounted) {
           setTimeout(() => {
             if (isMounted) setIsAppInitializing(false);
-          }, 1200);
+          }, 600);
         }
       }
     };
@@ -351,6 +390,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     refreshChats();
+    if (currentUser) {
+      requestAllPermissionsAfterLogin(currentUser.id);
+    }
   }, [currentUser]);
 
   // Ref to always track latest activeChat in WS callbacks without stale closures
@@ -359,34 +401,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeChatRef.current = activeChat;
   }, [activeChat]);
 
-  // Fetch messages when activeChat changes with pagination support
+  // Fetch messages when activeChat changes with pagination & unread support
   useEffect(() => {
     if (!activeChat) {
       setMessages([]);
       setIsChatLoading(false);
+      setFirstUnreadMessageId(null);
       return;
     }
 
     let isCurrent = true;
     setIsChatLoading(true);
     setMessages([]); // Instantly clear previous room messages
+    setFirstUnreadMessageId(null);
 
-    api.getMessages(activeChat.id, 20)
+    api.getMessages(activeChat.id, { limit: 20, userId: currentUser?.id })
       .then((res) => {
         if (!isCurrent) return;
         if (Array.isArray(res)) {
           setMessages(res.filter((m: Message) => m.chatId === activeChat.id));
           setHasMoreMessages(false);
+          setHasMoreAfter(false);
+          setFirstUnreadMessageId(null);
         } else {
           const msgs = (res.messages || []).filter((m: Message) => m.chatId === activeChat.id);
           setMessages(msgs);
-          setHasMoreMessages(res.hasMore);
+          setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
+          setHasMoreAfter(res.hasMoreAfter ?? false);
+          setFirstUnreadMessageId(res.firstUnreadMessageId || null);
         }
-        // Mark as read
-        if (currentUser) {
-          api.markAsRead(activeChat.id, currentUser.id);
-          wsClient.send("message:read", { chatId: activeChat.id, userId: currentUser.id });
-        }
+        // Note: Do NOT auto mark-as-read all messages on room entry. Read status is handled via viewport IntersectionObserver.
       })
       .finally(() => {
         if (isCurrent) {
@@ -406,16 +450,34 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingMoreMessages(true);
     try {
       const oldestId = messages[0].id;
-      const res = await api.getMessages(activeChat.id, 20, oldestId);
+      const res = await api.getMessages(activeChat.id, { limit: 20, beforeId: oldestId });
       if (res.messages && res.messages.length > 0) {
         const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
         setMessages((prev) => [...filtered, ...prev]);
       }
-      setHasMoreMessages(res.hasMore);
+      setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
     } catch (e) {
       console.error("Error loading previous messages:", e);
     } finally {
       setIsLoadingMoreMessages(false);
+    }
+  };
+
+  const loadNewerMessages = async () => {
+    if (!activeChat || isLoadingNewerMessages || !hasMoreAfter || messages.length === 0) return;
+    setIsLoadingNewerMessages(true);
+    try {
+      const newestId = messages[messages.length - 1].id;
+      const res = await api.getMessages(activeChat.id, { limit: 20, afterId: newestId });
+      if (res.messages && res.messages.length > 0) {
+        const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
+        setMessages((prev) => [...prev, ...filtered]);
+      }
+      setHasMoreAfter(res.hasMoreAfter ?? res.hasMore ?? false);
+    } catch (e) {
+      console.error("Error loading newer messages:", e);
+    } finally {
+      setIsLoadingNewerMessages(false);
     }
   };
 
@@ -433,10 +495,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setChats((prev) =>
         prev.map((c) => {
           if (c.id === newMsg.chatId) {
+            const isSelf = currentUser && newMsg.senderId === currentUser.id;
             return {
               ...c,
               lastMessage: newMsg,
-              unreadCount: activeChatRef.current?.id === c.id ? 0 : c.unreadCount + 1,
+              unreadCount: isSelf ? c.unreadCount : c.unreadCount + 1,
             };
           }
           return c;
@@ -453,10 +516,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)));
     });
 
-    const unsubStatusUpdated = wsClient.on("message:status_updated", ({ chatId, userId, status, seenAt }: any) => {
+    const unsubStatusUpdated = wsClient.on("message:status_updated", ({ chatId, userId, messageIds, status, seenAt, unreadCount }: any) => {
+      if (unreadCount !== undefined) {
+        setChats((prev) =>
+          prev.map((c) => (c.id === chatId ? { ...c, unreadCount } : c))
+        );
+      }
       setMessages((prev) =>
         prev.map((m) => {
-          if (m.chatId === chatId) {
+          if (m.chatId === chatId && (!messageIds || messageIds.includes(m.id))) {
             const seenBy = m.seenBy || [];
             if (userId && !seenBy.some((s) => s.userId === userId)) {
               return {
@@ -498,7 +566,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const unsubChatCreated = wsClient.on("chat:created", (newChat: Chat) => {
-      setChats((prev) => [newChat, ...prev]);
+      if (!currentUser) return;
+      const isMember = newChat.members?.some((m) => m.userId === currentUser.id);
+      if (!isMember) return;
+
+      setChats((prev) => {
+        if (prev.some((c) => c.id === newChat.id)) return prev;
+        return [newChat, ...prev];
+      });
     });
 
     return () => {
@@ -574,16 +649,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener("popstate", handleUrlRoute);
   }, [currentUser, chats.length]);
 
-  const sendMessage = async (data: { content: string; type?: MessageType; attachments?: any[]; replyToId?: string; forwardedFrom?: any; scheduledFor?: string }) => {
-    if (!activeChat || !currentUser) return;
+  const sendMessage = async (
+    data: { content: string; type?: MessageType; attachments?: any[]; replyToId?: string; forwardedFrom?: any; scheduledFor?: string },
+    targetChatId?: string
+  ) => {
+    const targetChat = targetChatId ? chats.find((c) => c.id === targetChatId) : activeChat;
+    if (!targetChat || !currentUser) return;
     
-    const newMsg = await api.sendMessage(activeChat.id, {
+    const newMsg = await api.sendMessage(targetChat.id, {
       senderId: currentUser.id,
       content: data.content,
       type: data.type || "text",
       attachments: data.attachments || [],
-      replyToMessageId: data.replyToId || replyTo?.id,
-      replyToMessage: replyTo
+      replyToMessageId: data.replyToId || (targetChat.id === activeChat?.id ? replyTo?.id : undefined),
+      replyToMessage: (targetChat.id === activeChat?.id && replyTo)
         ? {
             id: replyTo.id,
             senderName: replyTo.senderId === currentUser.id ? "شما" : "کاربر",
@@ -595,11 +674,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       scheduledFor: data.scheduledFor,
     });
 
-    setMessages((prev) => [...prev, newMsg]);
-    setReplyTo(null);
+    if (targetChat.id === activeChat?.id) {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+      setReplyTo(null);
 
-    // Clear draft
-    setDrafts((prev) => ({ ...prev, [activeChat.id]: "" }));
+      // Clear draft
+      setDrafts((prev) => ({ ...prev, [targetChat.id]: "" }));
+    } else {
+      // Refresh chats if forwarded to another chat room
+      refreshChats();
+    }
   };
 
   const editMsg = async (messageId: string, content: string) => {
@@ -642,11 +729,69 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDrafts((prev) => ({ ...prev, [chatId]: text }));
   };
 
+  const markMessagesAsRead = useCallback(async (messageIds: string[]) => {
+    if (!activeChat || !currentUser || messageIds.length === 0) return;
+    try {
+      const res = await api.markMessagesAsRead(activeChat.id, currentUser.id, messageIds);
+      if (res.unreadCount !== undefined) {
+        setChats((prev) =>
+          prev.map((c) => (c.id === activeChat.id ? { ...c, unreadCount: res.unreadCount } : c))
+        );
+      }
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (messageIds.includes(m.id)) {
+            const seenBy = m.seenBy || [];
+            if (!seenBy.some((s) => s.userId === currentUser.id)) {
+              return {
+                ...m,
+                status: "seen",
+                seenBy: [...seenBy, { userId: currentUser.id, userDisplayName: currentUser.displayName, userAvatarUrl: currentUser.avatarUrl, seenAt: new Date().toISOString() }],
+              };
+            }
+          }
+          return m;
+        })
+      );
+    } catch (e) {
+      console.error("Error marking messages as read:", e);
+    }
+  }, [activeChat, currentUser]);
+
   const logout = () => {
+    localStorage.removeItem("app_auth_token");
+    localStorage.removeItem("app_token_timestamp");
+    localStorage.removeItem("app_user_id");
     setCurrentUser(null);
+    setChats([]);
+    setActiveChat(null);
+    setMessages([]);
     wsClient.disconnect();
     setShowAuthModal(true);
   };
+
+  // Monitor Session Duration Expiry
+  useEffect(() => {
+    const checkSessionExpiry = () => {
+      const savedTimestamp = localStorage.getItem("app_token_timestamp");
+      if (currentUser && savedTimestamp) {
+        const timeoutMins = systemSettings.sessionTimeoutMinutes || 1440;
+        const elapsedMins = (Date.now() - Number(savedTimestamp)) / (1000 * 60);
+        if (elapsedMins > timeoutMins) {
+          logout();
+          alert("زمان نشست کاری شما به پایان رسیده است. لطفاً مجدداً وارد شوید.");
+        }
+      }
+    };
+
+    const interval = setInterval(checkSessionExpiry, 30000);
+    window.addEventListener("focus", checkSessionExpiry);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", checkSessionExpiry);
+    };
+  }, [currentUser, systemSettings.sessionTimeoutMinutes]);
 
   return (
     <ChatContext.Provider
@@ -707,9 +852,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setDraft,
         searchQuery,
         setSearchQuery,
+        markMessagesAsRead,
         hasMoreMessages,
         isLoadingMoreMessages,
         loadMoreMessages,
+        hasMoreAfter,
+        isLoadingNewerMessages,
+        loadNewerMessages,
+        firstUnreadMessageId,
         activeOpenMenuId,
         setActiveOpenMenuId,
         soundEnabled,

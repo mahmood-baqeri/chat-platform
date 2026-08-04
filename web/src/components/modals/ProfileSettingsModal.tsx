@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
-import { X, User, Laptop, Smartphone, Shield, LogOut, Check, Moon, Sun, Bell, Volume2, VolumeX } from "lucide-react";
+import { permissionManager, PermissionStatus } from "../../utils/permissionManager";
+import { X, User, Laptop, Smartphone, Shield, LogOut, Check, Moon, Sun, Bell, Volume2, VolumeX, Mic, Camera, Lock } from "lucide-react";
 
 export const ProfileSettingsModal: React.FC = () => {
   const {
@@ -23,6 +24,43 @@ export const ProfileSettingsModal: React.FC = () => {
   const [bio, setBio] = useState(currentUser?.bio || "");
   const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  const [notifPermission, setNotifPermission] = useState<PermissionStatus>("default");
+  const [micPermission, setMicPermission] = useState<PermissionStatus>("default");
+  const [camPermission, setCamPermission] = useState<PermissionStatus>("default");
+
+  useEffect(() => {
+    if (showProfileModal) {
+      setNotifPermission(permissionManager.checkNotificationPermission());
+      permissionManager.checkMediaPermission("microphone").then(setMicPermission);
+      permissionManager.checkMediaPermission("camera").then(setCamPermission);
+    }
+  }, [showProfileModal]);
+
+  const handleRequestNotif = async () => {
+    try {
+      const cfg = await api.getPushSettings();
+      const res = await permissionManager.requestNotificationPermission(cfg?.vapidPublicKey);
+      setNotifPermission(res.status);
+      if (res.status === "granted" && res.subscription) {
+        await api.subscribePush(res.subscription, currentUser?.id);
+      }
+    } catch (err: any) {
+      alert(err.message || "خطا در دریافت دسترسی اعلان‌ها");
+    }
+  };
+
+  const handleRequestMic = async () => {
+    const res = await permissionManager.requestMediaPermission("microphone");
+    setMicPermission(res.status);
+    if (res.status === "denied") alert(res.message);
+  };
+
+  const handleRequestCam = async () => {
+    const res = await permissionManager.requestMediaPermission("camera");
+    setCamPermission(res.status);
+    if (res.status === "denied") alert(res.message);
+  };
 
   if (!showProfileModal || !currentUser) return null;
 
@@ -107,6 +145,71 @@ export const ProfileSettingsModal: React.FC = () => {
             >
               {soundEnabled ? "فعال" : "غیرفعال"}
             </button>
+          </div>
+
+          {/* Device Permissions Controls */}
+          <div className="pt-3 border-t border-white/5 space-y-2">
+            <h5 className="text-[11px] font-bold text-slate-400 mb-1">دسترسی‌های مرورگر و دستگاه</h5>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-slate-200">
+                <Bell className="w-3.5 h-3.5 text-purple-400" />
+                <span>اعلان‌های Push مرورگر</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleRequestNotif}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                  notifPermission === "granted"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : notifPermission === "denied"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    : "bg-purple-600/20 text-purple-300 border-purple-500/30"
+                }`}
+              >
+                {notifPermission === "granted" ? "مجوز داده شده" : notifPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-slate-200">
+                <Mic className="w-3.5 h-3.5 text-cyan-400" />
+                <span>میکروفون (وویس و تماس)</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleRequestMic}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                  micPermission === "granted"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : micPermission === "denied"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    : "bg-cyan-600/20 text-cyan-300 border-cyan-500/30"
+                }`}
+              >
+                {micPermission === "granted" ? "مجوز داده شده" : micPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-slate-200">
+                <Camera className="w-3.5 h-3.5 text-blue-400" />
+                <span>دوربین (ویدیو/عکس)</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleRequestCam}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                  camPermission === "granted"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : camPermission === "denied"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    : "bg-blue-600/20 text-blue-300 border-blue-500/30"
+                }`}
+              >
+                {camPermission === "granted" ? "مجوز داده شده" : camPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
+              </button>
+            </div>
           </div>
         </div>
 

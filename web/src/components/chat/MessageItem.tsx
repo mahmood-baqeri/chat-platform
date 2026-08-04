@@ -211,14 +211,17 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
 
   const isHighlighted = highlightedMessageId === message.id;
   const seenCount = message.seenBy?.length || 0;
+  const isUnread = !isMe && !!currentUser && (!message.seenBy || !message.seenBy.some((s) => s.userId === currentUser.id));
 
   return (
     <div
       ref={containerRef}
       id={`message-${message.id}`}
-      className={`flex flex-col my-1.5 group relative transition-all duration-300 p-1 rounded-2xl ${
+      data-message-id={message.id}
+      data-unread={isUnread ? "true" : "false"}
+      className={`message-item flex flex-col my-1.5 group relative transition-all duration-300 p-1 rounded-2xl ${
         isHighlighted ? "ring-2 ring-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-[1.01]" : ""
-      } ${isMe ? "items-end" : "items-start"}`}
+      } ${isMe ? "items-start" : "items-end"}`}
     >
       {/* Pinned Tag */}
       {message.isPinned && (

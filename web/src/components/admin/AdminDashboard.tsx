@@ -118,6 +118,7 @@ export const AdminDashboard: React.FC = () => {
     isActive: true,
     subscriptionCount: 0,
   });
+  const [pushPolicy, setPushPolicy] = useState<"always" | "offline_only" | "mentions_only" | "direct_only" | "disabled">("always");
   const [pushSaving, setPushSaving] = useState(false);
   const [pushSaveResult, setPushSaveResult] = useState<{ success: boolean; message: string } | null>(null);
   const [showVapidSecret, setShowVapidSecret] = useState(false);
@@ -132,6 +133,8 @@ export const AdminDashboard: React.FC = () => {
     targetUser: "all",
     link: "/",
   });
+  const [pushTargetType, setPushTargetType] = useState<"all" | "user" | "room">("all");
+  const [selectedTargetId, setSelectedTargetId] = useState<string>("");
   const [testPushSending, setTestPushSending] = useState(false);
   const [testPushResult, setTestPushResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -380,8 +383,21 @@ export const AdminDashboard: React.FC = () => {
           setPushSubs(data.subscriptions);
         }
       }
+      const policyRes = await api.getPushPolicy();
+      if (policyRes && policyRes.policy) {
+        setPushPolicy(policyRes.policy as any);
+      }
     } catch (e) {
       console.error("Failed to load Push settings:", e);
+    }
+  };
+
+  const handleSavePushPolicy = async (policyValue: typeof pushPolicy) => {
+    setPushPolicy(policyValue);
+    try {
+      await api.updatePushPolicy(policyValue);
+    } catch (e) {
+      console.error("Failed to save push policy:", e);
     }
   };
 
@@ -434,10 +450,22 @@ export const AdminDashboard: React.FC = () => {
     setTestPushSending(true);
     setTestPushResult(null);
     try {
-      const res = await api.sendTestPush(testPushForm);
+      let res;
+      if (pushTargetType === "all") {
+        res = await api.sendTestPush({ ...testPushForm, targetUser: "all" });
+      } else {
+        res = await api.sendAdminPush({
+          targetType: pushTargetType,
+          targetId: selectedTargetId,
+          title: testPushForm.title,
+          message: testPushForm.message,
+          link: testPushForm.link,
+          iconUrl: testPushForm.iconUrl,
+        });
+      }
       setTestPushResult({
         success: true,
-        message: res.message || "اعلان Push تستی با موفقیت ارسال شد.",
+        message: res.message || "اعلان Push با موفقیت ارسال شد.",
       });
     } catch (err: any) {
       setTestPushResult({
@@ -502,15 +530,17 @@ export const AdminDashboard: React.FC = () => {
     }, "حذف دائم پیام از سیستم", "آیا از حذف این پیام از پایگاه داده و تمام چت‌روم‌ها اطمینان دارید؟");
   };
 
+  const isAdminUser = currentUser && (currentUser.role === "admin" || currentUser.role === "owner" || currentUser.role === "super_admin");
+
   useEffect(() => {
-    if (showAdminPanel) {
+    if (showAdminPanel && isAdminUser) {
       loadData();
       fetchDbSettings();
       fetchSmsSettings();
       fetchPushSettings();
       setLocalSettings(systemSettings);
     }
-  }, [showAdminPanel, systemSettings]);
+  }, [showAdminPanel, systemSettings, isAdminUser]);
 
   if (!showAdminPanel) return null;
 
@@ -1845,6 +1875,23 @@ export const AdminDashboard: React.FC = () => {
                       </button>
                       <span className="text-slate-200 font-bold">سرویس ارسال Push فعال باشد</span>
                     </div>
+
+                    {/* Push Policy Selector */}
+                    <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/20 space-y-2 text-xs">
+                      <label className="text-purple-300 font-bold block">سیاست ارسال اعلانات (Push Policy):</label>
+                      <select
+                        value={pushPolicy}
+                        onChange={(e) => handleSavePushPolicy(e.target.value as any)}
+                        className="w-full bg-slate-900 border border-purple-500/30 rounded-xl p-3 text-white font-medium focus:outline-none"
+                      >
+                        <option value="always">همیشه (ارسال اعلان Push برای تمام پیام‌های جدید)</option>
+                        <option value="offline_only">فقط هنگام آفلاین بودن کاربر</option>
+                        <option value="mentions_only">فقط هنگام منشن شدن (@username)</option>
+                        <option value="direct_only">فقط برای گفتگوهای خصوصی (پیوی)</option>
+                        <option value="disabled">غیرفعال‌سازی کامل اعلانات خودکار</option>
+                      </select>
+                      <p className="text-[11px] text-slate-400">سیاست انتخاب شده فوراً در سرور اعمال شده و در پایگاه داده MySQL ذخیره می‌گردد.</p>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
@@ -1935,6 +1982,53 @@ export const AdminDashboard: React.FC = () => {
                   تنظیمات با موفقیت ذخیره شد.
                 </div>
               )}
+
+              {/* Session & Numeric Settings */}
+              <div className="p-5 rounded-2xl bg-[#1A1D2B] border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-100">مدت زمان اعتبار نشست / لاگین کاربر (بر حسب دقیقه)</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">پس از این مدت، کاربر نیاز به احراز هویت مجدد خواهد داشت.</p>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                    {(localSettings.sessionTimeoutMinutes || 1440) >= 60 
+                      ? `${Math.floor((localSettings.sessionTimeoutMinutes || 1440) / 60)} ساعت و ${(localSettings.sessionTimeoutMinutes || 1440) % 60} دقیقه`
+                      : `${localSettings.sessionTimeoutMinutes || 1440} دقیقه`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={525600}
+                    value={localSettings.sessionTimeoutMinutes || 1440}
+                    onChange={(e) => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: Math.max(1, parseInt(e.target.value, 10) || 1440) }))}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-slate-100 font-mono text-xs focus:border-blue-500 focus:outline-none"
+                    placeholder="1440"
+                  />
+                  <div className="flex gap-1.5 shrink-0">
+                    {[
+                      { label: "15 دقیقه", value: 15 },
+                      { label: "1 ساعت", value: 60 },
+                      { label: "24 ساعت", value: 1440 },
+                      { label: "7 روز", value: 10080 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: preset.value }))}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all ${
+                          localSettings.sessionTimeoutMinutes === preset.value
+                            ? "bg-blue-600 text-white border-blue-500"
+                            : "bg-slate-800/60 text-slate-400 border-white/5 hover:bg-slate-800"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
@@ -2530,18 +2624,61 @@ export const AdminDashboard: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-slate-300 block mb-1 font-semibold">گیرنده (Target):</label>
-                <select
-                  value={testPushForm.targetUser}
-                  onChange={(e) => setTestPushForm({ ...testPushForm, targetUser: e.target.value })}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white"
-                >
-                  <option value="all">همه کاربران و مرورگرها (Broadcast)</option>
-                  {pushSubs.map(s => (
-                    <option key={s.id} value={s.id}>دستگاه: {s.id} (کاربر: {s.userId})</option>
-                  ))}
-                </select>
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 block mb-1 font-semibold">نوع هدف (Target Type):</label>
+                  <select
+                    value={pushTargetType}
+                    onChange={(e) => {
+                      setPushTargetType(e.target.value as any);
+                      setSelectedTargetId("");
+                    }}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white"
+                  >
+                    <option value="all">ارسال همگانی (Broadcast to All)</option>
+                    <option value="user">کاربر خاص (Specific User)</option>
+                    <option value="room">اعضای گفتگو / گروه / کانال خاص</option>
+                  </select>
+                </div>
+
+                {pushTargetType === "user" && (
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-semibold">انتخاب کاربر:</label>
+                    <select
+                      value={selectedTargetId}
+                      onChange={(e) => setSelectedTargetId(e.target.value)}
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white"
+                    >
+                      <option value="">انتخاب کاربر...</option>
+                      {usersList.map((u) => (
+                        <option key={u.id} value={u.id}>{u.displayName} (@{u.username})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {pushTargetType === "room" && (
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-semibold">انتخاب گفتگو / گروه / کانال:</label>
+                    <select
+                      value={selectedTargetId}
+                      onChange={(e) => setSelectedTargetId(e.target.value)}
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white"
+                    >
+                      <option value="">انتخاب روم...</option>
+                      <optgroup label="گروه‌ها">
+                        {groupsList.map((g) => (
+                          <option key={g.id} value={g.id}>{g.title} ({g.members?.length || 0} عضو)</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="کانال‌ها">
+                        {channelsList.map((c) => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div>

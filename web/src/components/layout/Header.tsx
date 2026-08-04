@@ -19,6 +19,7 @@ export const Header: React.FC = () => {
     setSoundEnabled,
     setShowAdminPanel,
     setShowProfileModal,
+    setShowAuthModal,
     logout,
   } = useChat();
 
@@ -65,20 +66,22 @@ export const Header: React.FC = () => {
           {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
         </button>
 
-        {/* Admin Dashboard Button */}
-        <button
-          onClick={() => {
-            setShowAdminPanel(true);
-            try {
-              window.history.pushState({}, "", "/admin");
-            } catch (e) {}
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-all shadow-sm cursor-pointer"
-          title="ورود به پنل مدیریت (/admin)"
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span className="hidden sm:inline">پنل مدیریت</span>
-        </button>
+        {/* Admin Dashboard Button - Rendered ONLY if user has admin permission */}
+        {(currentUser?.role === "admin" || currentUser?.role === "owner" || currentUser?.role === "super_admin") && (
+          <button
+            onClick={() => {
+              setShowAdminPanel(true);
+              try {
+                window.history.pushState({}, "", "/admin");
+              } catch (e) {}
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-all shadow-sm cursor-pointer"
+            title="ورود به پنل مدیریت (/admin)"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span className="hidden sm:inline">پنل مدیریت</span>
+          </button>
+        )}
 
         {/* User Profile Button */}
         {currentUser ? (
@@ -115,7 +118,7 @@ export const Header: React.FC = () => {
           </div>
         ) : (
           <button
-            onClick={() => useChat().setShowAuthModal(true)}
+            onClick={() => setShowAuthModal(true)}
             className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-all shadow-md shadow-blue-500/20"
           >
             ورود / ثبت‌نام

@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
 import { wsClient } from "../../services/websocket";
+import { requestAllPermissionsAfterLogin } from "../../utils/permissions";
 import { X, Phone, KeyRound, ShieldCheck, Sparkles } from "lucide-react";
 
 export const AuthModal: React.FC = () => {
-  const { showAuthModal, setShowAuthModal, setCurrentUser, systemSettings } = useChat();
+  const { showAuthModal, setShowAuthModal, setCurrentUser, currentUser, systemSettings } = useChat();
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("09121111111");
@@ -14,7 +15,7 @@ export const AuthModal: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  if (!showAuthModal) return null;
+  if (!showAuthModal && currentUser) return null;
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,16 +42,27 @@ export const AuthModal: React.FC = () => {
     setErrorMsg("");
     try {
       const { user, token } = await api.verifyOtp(phone, otpCode);
+      localStorage.setItem("app_auth_token", token);
+      localStorage.setItem("app_token_timestamp", Date.now().toString());
+      localStorage.setItem("app_user_id", user.id);
+
       setCurrentUser(user);
       wsClient.connect(user.id);
       setShowAuthModal(false);
+      requestAllPermissionsAfterLogin(user.id);
 
-      const pendingChatId = localStorage.getItem("pending_chat_id");
-      if (pendingChatId) {
-        localStorage.removeItem("pending_chat_id");
-        window.history.pushState({}, "", `/chat/${pendingChatId}`);
-        window.dispatchEvent(new Event("popstate"));
+      const redirectTarget = sessionStorage.getItem("redirect_after_login") || localStorage.getItem("pending_chat_id");
+      sessionStorage.removeItem("redirect_after_login");
+      localStorage.removeItem("pending_chat_id");
+
+      let targetRoute = "/";
+      if (redirectTarget) {
+        targetRoute = (redirectTarget.startsWith("/chat/") || redirectTarget.startsWith("/admin")) ? redirectTarget : (redirectTarget === "/login" ? "/" : redirectTarget);
       }
+      try {
+        window.history.pushState({}, "", targetRoute);
+        window.dispatchEvent(new Event("popstate"));
+      } catch (e) {}
     } catch (err: any) {
       setErrorMsg(err.message || "کد تأیید اشتباه است");
     } finally {

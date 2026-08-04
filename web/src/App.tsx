@@ -15,12 +15,35 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { SplashLoader } from "./components/common/SplashLoader";
 
 function AppContent() {
-  const { isAppInitializing } = useChat();
+  const { isAppInitializing, currentUser } = useChat();
+
+  React.useEffect(() => {
+    if (!isAppInitializing && !currentUser) {
+      if (window.location.pathname !== "/login") {
+        sessionStorage.setItem("redirect_after_login", window.location.pathname + window.location.search);
+        try {
+          window.history.replaceState({}, "", "/login");
+        } catch (e) {}
+      }
+    }
+  }, [isAppInitializing, currentUser]);
+
+  if (isAppInitializing) {
+    return <SplashLoader isLoading={true} />;
+  }
+
+  // Prevent unauthenticated access: render ONLY Login when not logged in
+  if (!currentUser) {
+    return (
+      <div dir="rtl" className="h-screen w-screen bg-[#0F111A] text-slate-100 flex items-center justify-center font-sans overflow-hidden select-none">
+        <AuthModal />
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="h-screen w-screen bg-[var(--bg)] text-[var(--text-primary)] flex flex-col font-sans overflow-x-hidden overflow-y-hidden select-none transition-colors duration-200">
-      {/* Splash Loading Overlay */}
-      <SplashLoader isLoading={isAppInitializing} />
+      <SplashLoader isLoading={false} />
 
       {/* Navigation Header */}
       <ErrorBoundary fallbackTitle="خطا در هدر اصلی">

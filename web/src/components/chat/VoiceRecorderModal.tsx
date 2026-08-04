@@ -79,21 +79,28 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
         throw new Error("مرورگر شما از قابلیت ضبط صدا پشتیبانی نمی‌کند");
       }
 
-      // Do not force hardware sampleRate constraint to avoid speed/pitch stretching mismatches
+      // Force consistent audio constraints to prevent sample rate pitch/speed stretching
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           channelCount: 1,
+          sampleRate: { ideal: 48000 },
         },
       });
 
       mediaStreamRef.current = stream;
       audioChunksRef.current = [];
 
+      const audioTrack = stream.getAudioTracks()[0];
+      const trackSettings = audioTrack ? audioTrack.getSettings() : {};
+      const trackSampleRate = trackSettings.sampleRate;
+
       const mimeType = getSupportedMimeType();
-      const options: MediaRecorderOptions = {};
+      const options: MediaRecorderOptions = {
+        audioBitsPerSecond: 128000,
+      };
       if (mimeType) {
         options.mimeType = mimeType;
       }
@@ -123,7 +130,8 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
-          const audioCtx = new AudioCtx();
+          // Pass the exact stream track sample rate to AudioContext to prevent resampler pitch distortion
+          const audioCtx = trackSampleRate ? new AudioCtx({ sampleRate: trackSampleRate }) : new AudioCtx();
           audioContextRef.current = audioCtx;
           const source = audioCtx.createMediaStreamSource(stream);
           const analyser = audioCtx.createAnalyser();
@@ -137,7 +145,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
         console.warn("Waveform audio context warning:", ctxErr);
       }
 
-      mediaRecorder.start(200);
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);

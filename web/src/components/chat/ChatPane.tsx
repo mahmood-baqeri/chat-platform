@@ -4,7 +4,7 @@ import { api } from "../../services/api";
 import { MessageItem } from "./MessageItem";
 import { MessageInput } from "./MessageInput";
 import { ChatSkeletonLoader } from "./ChatSkeletonLoader";
-import { FilePreviewModal } from "../modals/FilePreviewModal";
+import { FilePreviewModal, FileWithCaption } from "../modals/FilePreviewModal";
 import { Message } from "../../types";
 import {
   Users,
@@ -16,18 +16,21 @@ import {
   MessageSquare,
   Sparkles,
   ChevronRight,
+  ChevronDown,
   ShieldCheck,
   MoreVertical,
   X,
   Bell,
   Calendar,
   Loader2,
-  Upload
+  Upload,
+  Lock
 } from "lucide-react";
 
 export const ChatPane: React.FC = () => {
   const {
     activeChat,
+    currentUser,
     messages,
     typingUsers,
     isChatLoading,
@@ -39,16 +42,25 @@ export const ChatPane: React.FC = () => {
     hasMoreMessages,
     isLoadingMoreMessages,
     loadMoreMessages,
+    hasMoreAfter,
+    isLoadingNewerMessages,
+    loadNewerMessages,
+    firstUnreadMessageId,
     setShowSearchModal,
     sendMessage,
+    markMessagesAsRead,
   } = useChat();
 
   const [showMobileBottomSheet, setShowMobileBottomSheet] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [pendingDroppedFile, setPendingDroppedFile] = useState<File | null>(null);
+  const [pendingDroppedFiles, setPendingDroppedFiles] = useState<File[]>([]);
+  const [showScrollBottomButton, setShowScrollBottomButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
+  const initialScrolledChatRef = useRef<string | null>(null);
+  const pendingReadIdsRef = useRef<Set<string>>(new Set());
+  const readTimeoutRef = useRef<any>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -72,59 +84,128 @@ export const ChatPane: React.FC = () => {
     setIsDraggingFile(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (systemSettings.maxFileSizeMB && file.size > systemSettings.maxFileSizeMB * 1024 * 1024) {
-        alert(`حجم فایل ${file.name} بیشتر از ${systemSettings.maxFileSizeMB} مگابایت است.`);
-        return;
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const validFiles: File[] = [];
+      for (const file of droppedFiles) {
+        if (systemSettings.maxFileSizeMB && file.size > systemSettings.maxFileSizeMB * 1024 * 1024) {
+          alert(`حجم فایل ${file.name} بیشتر از ${systemSettings.maxFileSizeMB} مگابایت است.`);
+          continue;
+        }
+        validFiles.push(file);
       }
-      setPendingDroppedFile(file);
+      if (validFiles.length > 0) {
+        setPendingDroppedFiles(validFiles);
+      }
     }
   };
 
-  const handleSendDroppedFile = async (file: File, caption: string) => {
+  const handleSendDroppedFiles = async (items: FileWithCaption[]) => {
     try {
-      const { promise } = api.uploadFileWithProgress(file);
-      const uploaded = await promise;
-      let msgType: any = "document";
-      if (file.type.startsWith("image/")) msgType = "image";
-      else if (file.type.startsWith("video/")) msgType = "video";
-      else if (file.type.startsWith("audio/")) msgType = "audio";
+      for (const item of items) {
+        const { promise } = api.uploadFileWithProgress(item.file);
+        const uploaded = await promise;
+        let msgType: any = "document";
+        if (item.file.type.startsWith("image/")) msgType = "image";
+        else if (item.file.type.startsWith("video/")) msgType = "video";
+        else if (item.file.type.startsWith("audio/")) msgType = "audio";
 
-      await sendMessage({
-        content: caption || file.name,
-        type: msgType,
-        attachments: [uploaded],
-      });
-      setPendingDroppedFile(null);
+        await sendMessage({
+          content: item.caption || item.file.name,
+          type: msgType,
+          attachments: [uploaded],
+        });
+      }
+      setPendingDroppedFiles([]);
     } catch (err: any) {
       alert(err.message || "خطا در آپلود فایل");
     }
   };
 
-  // Auto-scroll to bottom on first load or when new message arrives at bottom
+  // 1. Initial Positioning on Chat Entry (Fix scroll bug: scroll to unread ONCE per room switch)
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    if (!activeChat || isChatLoading) return;
+
+    if (initialScrolledChatRef.current !== activeChat.id) {
+      initialScrolledChatRef.current = activeChat.id;
+      setTimeout(() => {
+        if (firstUnreadMessageId) {
+          const unreadEl = document.getElementById(`message-${firstUnreadMessageId}`);
+          if (unreadEl) {
+            unreadEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+          }
+        }
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      }, 150);
+    } else if (scrollContainerRef.current) {
+      // Auto-scroll to bottom only when new message arrives AND user is already at bottom
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
-      if (isNearBottom || messages.length <= 30) {
+      if (isNearBottom) {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }
     }
-  }, [messages.length, activeChat?.id]);
+  }, [activeChat?.id, isChatLoading, messages.length, firstUnreadMessageId]);
 
-  // Handle scroll for Infinite Scroll (load older messages when user scrolls to top)
+  // 2. IntersectionObserver for Viewport-based Read Receipts (Telegram-style)
+  useEffect(() => {
+    if (!scrollContainerRef.current || !activeChat || !currentUser) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement;
+            const msgId = el.getAttribute("data-message-id");
+            const isUnread = el.getAttribute("data-unread") === "true";
+            if (msgId && isUnread) {
+              pendingReadIdsRef.current.add(msgId);
+              el.setAttribute("data-unread", "false"); // avoid duplicate queueing
+
+              if (readTimeoutRef.current) clearTimeout(readTimeoutRef.current);
+              readTimeoutRef.current = setTimeout(() => {
+                const ids = Array.from(pendingReadIdsRef.current);
+                if (ids.length > 0) {
+                  markMessagesAsRead(ids);
+                  pendingReadIdsRef.current.clear();
+                }
+              }, 200);
+            }
+          }
+        });
+      },
+      {
+        root: scrollContainerRef.current,
+        threshold: 0.5,
+      }
+    );
+
+    const unreadEls = scrollContainerRef.current.querySelectorAll('.message-item[data-unread="true"]');
+    unreadEls.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+      if (readTimeoutRef.current) clearTimeout(readTimeoutRef.current);
+    };
+  }, [activeChat?.id, messages, currentUser, markMessagesAsRead]);
+
+  // Handle scroll for Bidirectional Infinite Scroll & Scroll-to-Bottom visibility
   const handleScroll = async (e: UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowScrollBottomButton(distanceFromBottom > 250);
+
     if (container.scrollTop < 100 && hasMoreMessages && !isLoadingMoreMessages) {
       prevScrollHeightRef.current = container.scrollHeight;
       await loadMoreMessages();
-      // Restore scroll position so content doesn't jump
       setTimeout(() => {
         if (container) {
           const newScrollHeight = container.scrollHeight;
           container.scrollTop = newScrollHeight - prevScrollHeightRef.current;
         }
       }, 50);
+    } else if (distanceFromBottom < 100 && hasMoreAfter && !isLoadingNewerMessages) {
+      await loadNewerMessages();
     }
   };
 
@@ -146,6 +227,22 @@ export const ChatPane: React.FC = () => {
   const latestPinned = pinnedMessages.length > 0 ? pinnedMessages[pinnedMessages.length - 1] : null;
   const activeTypingList = typingUsers[activeChat.id] || [];
   const actualMemberCount = activeChat.members ? activeChat.members.length : (activeChat.memberCount || 0);
+  const unreadCount = activeChat.unreadCount || 0;
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToFirstUnread = () => {
+    if (firstUnreadMessageId) {
+      const el = document.getElementById(`message-${firstUnreadMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    scrollToBottom();
+  };
 
   // Group messages by date
   const formatDateLabel = (isoString: string) => {
@@ -318,6 +415,33 @@ export const ChatPane: React.FC = () => {
         </div>
       )}
 
+      {/* Floating Unread Count Banner */}
+      {unreadCount > 0 && (
+        <div
+          onClick={scrollToFirstUnread}
+          className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg border border-blue-400/30 backdrop-blur-md cursor-pointer flex items-center gap-1.5 transition-all animate-in slide-in-from-top-2 duration-200 active:scale-95"
+        >
+          <ChevronDown className="w-4 h-4 animate-bounce" />
+          <span>{unreadCount} پیام خوانده‌نشده</span>
+        </div>
+      )}
+
+      {/* Floating Scroll to Bottom Button */}
+      {showScrollBottomButton && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-20 left-6 z-30 w-11 h-11 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text-primary)] shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center cursor-pointer group"
+          title="رفتن به آخرین پیام"
+        >
+          <ChevronDown className="w-5 h-5 text-blue-500 group-hover:translate-y-0.5 transition-transform" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold flex items-center justify-center border-2 border-[var(--sidebar)] shadow-md">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Message Feed List with Infinite Scroll & Date Grouping */}
       {isChatLoading ? (
         <ChatSkeletonLoader />
@@ -356,12 +480,45 @@ export const ChatPane: React.FC = () => {
               return <MessageItem key={item.message!.id} message={item.message!} />;
             })
           )}
+          {/* Real-time Typing Bubble Indicator */}
+          {activeTypingList.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] py-2 px-3.5 rounded-2xl bg-[var(--sidebar)] border border-[var(--border)] w-fit animate-in fade-in duration-200 my-2 shadow-sm">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <span className="text-[11px] font-medium text-blue-400">
+                {activeTypingList.join("، ")} در حال نوشتن...
+              </span>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       )}
 
-      {/* Message Input Box */}
-      <MessageInput />
+      {/* Message Input Box or Channel Restricted Banner */}
+      {(() => {
+        const isChannel = activeChat.type === "channel";
+        const userChannelMember = activeChat.members?.find((m) => m.userId === currentUser?.id);
+        const isChannelAdmin =
+          isChannel &&
+          (activeChat.ownerId === currentUser?.id ||
+            userChannelMember?.role === "owner" ||
+            userChannelMember?.role === "admin" ||
+            currentUser?.role === "admin");
+
+        if (isChannel && !isChannelAdmin) {
+          return (
+            <div className="p-4 bg-[var(--sidebar)] border-t border-[var(--border)] text-center text-xs font-semibold text-[var(--text-secondary)] flex items-center justify-center gap-2 select-none shrink-0 shadow-lg">
+              <Lock className="w-4 h-4 text-amber-500" />
+              <span>تنها مدیران کانال می‌توانند در این کانال پیام ارسال کنند.</span>
+            </div>
+          );
+        }
+
+        return <MessageInput />;
+      })()}
 
       {/* Mobile Bottom Sheet Menu */}
       {showMobileBottomSheet && (
@@ -438,10 +595,10 @@ export const ChatPane: React.FC = () => {
 
       {/* Drag & Drop File Preview Modal */}
       <FilePreviewModal
-        file={pendingDroppedFile}
-        isOpen={!!pendingDroppedFile}
-        onClose={() => setPendingDroppedFile(null)}
-        onSend={handleSendDroppedFile}
+        files={pendingDroppedFiles}
+        isOpen={pendingDroppedFiles.length > 0}
+        onClose={() => setPendingDroppedFiles([])}
+        onSend={handleSendDroppedFiles}
       />
     </main>
   );

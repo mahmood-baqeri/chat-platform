@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
 import { VoiceRecorderModal } from "./VoiceRecorderModal";
-import { FilePreviewModal } from "../modals/FilePreviewModal";
+import { FilePreviewModal, FileWithCaption } from "../modals/FilePreviewModal";
 import { Attachment } from "../../types";
 import {
   Send,
@@ -31,6 +31,7 @@ interface UploadProgressState {
 export const MessageInput: React.FC = () => {
   const {
     activeChat,
+    currentUser,
     sendMessage,
     replyTo,
     setReplyTo,
@@ -153,78 +154,126 @@ export const MessageInput: React.FC = () => {
     setText("");
   };
 
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
 
-    // Validate file size limit
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (systemSettings.maxFileSizeMB && fileSizeMB > systemSettings.maxFileSizeMB) {
-      alert(`حجم فایل بیشتر از حد مجاز سیستم (${systemSettings.maxFileSizeMB} مگابایت) است.`);
-      return;
-    }
-
-    // Validate allowed file extensions
-    if (systemSettings.allowedFileExtensions) {
-      const allowedExts = systemSettings.allowedFileExtensions.toLowerCase().split(",").map(s => s.trim());
-      const ext = file.name.split(".").pop()?.toLowerCase();
-      if (ext && !allowedExts.includes(ext) && !allowedExts.includes("*" + ext)) {
-        alert(`پسوند فایل .${ext} مجاز نیست. پسوندهای مجاز: ${systemSettings.allowedFileExtensions}`);
-        return;
+    const validFiles: File[] = [];
+    for (const file of selectedFiles) {
+      // Validate file size limit
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (systemSettings.maxFileSizeMB && fileSizeMB > systemSettings.maxFileSizeMB) {
+        alert(`حجم فایل "${file.name}" بیشتر از حد مجاز سیستم (${systemSettings.maxFileSizeMB} مگابایت) است.`);
+        continue;
       }
+
+      // Validate allowed file extensions
+      if (systemSettings.allowedFileExtensions) {
+        const allowedExts = systemSettings.allowedFileExtensions.toLowerCase().split(",").map(s => s.trim());
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        if (ext && !allowedExts.includes(ext) && !allowedExts.includes("*" + ext)) {
+          alert(`پسوند فایل .${ext} مجاز نیست.`);
+          continue;
+        }
+      }
+      validFiles.push(file);
     }
 
-    setPendingFile(file);
+    if (validFiles.length > 0) {
+      setPendingFiles((prev) => [...prev, ...validFiles]);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const executeSendFileWithCaption = async (file: File, captionText: string) => {
-    const { promise, cancel } = api.uploadFileWithProgress(
-      file,
-      undefined,
-      (prog) => {
-        setUploadProgress({
-          fileName: file.name,
-          percent: prog.percent,
-          uploadedBytes: prog.uploadedBytes,
-          totalBytes: prog.totalBytes,
-          speedBps: prog.speedBps,
-          etaSeconds: prog.etaSeconds,
-          cancelFn: cancel,
-        });
-      }
-    );
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
 
-    setUploadProgress({
-      fileName: file.name,
-      percent: 0,
-      uploadedBytes: 0,
-      totalBytes: file.size,
-      speedBps: 0,
-      etaSeconds: 0,
-      cancelFn: cancel,
-    });
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
 
-    try {
-      const att = await promise;
-      const finalCaption = captionText || text.trim() || file.name;
-      await sendMessage({
-        content: finalCaption,
-        type: att.type,
-        attachments: [att],
-      });
-      setText("");
-    } catch (err: any) {
-      if (err.message !== "آپلود لغو شد") {
-        console.error("Upload error:", err);
-        alert(err.message || "خطا در بارگذاری فایل");
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files || []);
+    if (droppedFiles.length === 0) return;
+
+    const validFiles: File[] = [];
+    for (const file of droppedFiles) {
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (systemSettings.maxFileSizeMB && fileSizeMB > systemSettings.maxFileSizeMB) {
+        alert(`حجم فایل "${file.name}" بیشتر از حد مجاز سیستم (${systemSettings.maxFileSizeMB} مگابایت) است.`);
+        continue;
       }
-    } finally {
-      setUploadProgress(null);
-      setPendingFile(null);
+      validFiles.push(file);
     }
+
+    if (validFiles.length > 0) {
+      setPendingFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
+  const executeSendBatchWithCaptions = async (items: FileWithCaption[]) => {
+    if (items.length === 0) return;
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const { file, caption } = items[idx];
+
+      const { promise, cancel } = api.uploadFileWithProgress(
+        file,
+        undefined,
+        (prog) => {
+          setUploadProgress({
+            fileName: `فایل (${idx + 1}/${items.length}): ${file.name}`,
+            percent: prog.percent,
+            uploadedBytes: prog.uploadedBytes,
+            totalBytes: prog.totalBytes,
+            speedBps: prog.speedBps,
+            etaSeconds: prog.etaSeconds,
+            cancelFn: cancel,
+          });
+        }
+      );
+
+      setUploadProgress({
+        fileName: file.name,
+        percent: 0,
+        uploadedBytes: 0,
+        totalBytes: file.size,
+        speedBps: 0,
+        etaSeconds: 0,
+        cancelFn: cancel,
+      });
+
+      try {
+        const att = await promise;
+        const finalCaption = caption || (items.length === 1 ? text.trim() : "") || file.name;
+        await sendMessage({
+          content: finalCaption,
+          type: att.type,
+          attachments: [att],
+        });
+      } catch (err: any) {
+        if (err.message !== "آپلود لغو شد") {
+          console.error("Upload error:", err);
+          alert(err.message || `خطا در بارگذاری فایل ${file.name}`);
+        }
+      }
+    }
+
+    setUploadProgress(null);
+    setPendingFiles([]);
+    setText("");
   };
 
   const handleVoiceSend = async (blob: Blob, duration: number, sizeBytes: number, voiceCaption?: string) => {
@@ -291,12 +340,21 @@ export const MessageInput: React.FC = () => {
   };
 
   return (
-    <div ref={footerRef} className="bg-[var(--sidebar)] backdrop-blur-md border-t border-[var(--border)] p-3 relative text-[var(--text-primary)] shrink-0 transition-colors duration-200">
+    <div
+      ref={footerRef}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`bg-[var(--sidebar)] backdrop-blur-md border-t border-[var(--border)] p-3 relative text-[var(--text-primary)] shrink-0 transition-all duration-200 ${
+        isDragOver ? "border-2 border-dashed border-[#09387C] bg-[#09387C]/5" : ""
+      }`}
+    >
       {/* Hidden File Input */}
       <input
         type="file"
         ref={fileInputRef}
         accept={fileAccept}
+        multiple
         onChange={handleFileUpload}
         className="hidden"
       />
@@ -351,7 +409,7 @@ export const MessageInput: React.FC = () => {
             <div className="bg-[var(--list)] border-r-4 border-blue-500 p-2.5 rounded-xl mb-2 flex items-center justify-between text-xs backdrop-blur-md">
               <div className="min-w-0 pr-1">
                 <p className="font-bold text-blue-500 mb-0.5">
-                  {editingMessage ? "ویرایش پیام" : `پاسخ به ${replyTo?.senderId === useChat().currentUser?.id ? "خودتان" : "کاربر"}`}
+                  {editingMessage ? "ویرایش پیام" : `پاسخ به ${replyTo?.senderId === currentUser?.id ? "خودتان" : "کاربر"}`}
                 </p>
                 <p className="text-[var(--text-secondary)] truncate text-[11px]">
                   {editingMessage ? editingMessage.content : replyTo?.content}
@@ -533,10 +591,11 @@ export const MessageInput: React.FC = () => {
 
       {/* File Preview & Caption Modal */}
       <FilePreviewModal
-        file={pendingFile}
-        isOpen={!!pendingFile}
-        onClose={() => setPendingFile(null)}
-        onSend={executeSendFileWithCaption}
+        files={pendingFiles}
+        isOpen={pendingFiles.length > 0}
+        onClose={() => setPendingFiles([])}
+        onSend={executeSendBatchWithCaptions}
+        onAddMoreFiles={handleFileUpload}
       />
     </div>
   );

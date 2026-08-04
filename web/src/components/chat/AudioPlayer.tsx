@@ -69,7 +69,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ attachment, isMe, onDe
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      audioRef.current.defaultPlaybackRate = 1.0;
       audioRef.current.playbackRate = playbackSpeed;
+      if ("preservesPitch" in audioRef.current) {
+        (audioRef.current as any).preservesPitch = true;
+      }
       audioRef.current
         .play()
         .then(() => {

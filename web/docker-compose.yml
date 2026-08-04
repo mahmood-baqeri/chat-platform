@@ -10,30 +10,26 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/chatdb
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=rootpassword
+      - MYSQL_DATABASE=messenger_db
     depends_on:
-      - redis
-      - postgres
+      - mysql
     restart: always
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: always
-
-  postgres:
-    image: postgres:16-alpine
+  mysql:
+    image: mysql:8.0
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: chatdb
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: messenger_db
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+      - ./server/db/schema_mysql.sql:/docker-entrypoint-initdb.d/schema.sql
     restart: always
 
 volumes:
-  postgres_data:
+  mysql_data:

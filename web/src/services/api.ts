@@ -1,3 +1,14 @@
+const authFetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const token = localStorage.getItem("app_auth_token");
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string> || {}),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return fetch(input, { ...init, headers });
+};
+
 import { SystemSettings, User, UserSession, Chat, Message, Attachment, SystemAuditLog, ForbiddenWord, WordCategory, RolePermission } from "../types";
 
 const API_BASE = "/api";
@@ -5,7 +16,7 @@ const API_BASE = "/api";
 export const api = {
   // Auth
   sendOtp: async (phone: string) => {
-    const res = await fetch(`${API_BASE}/auth/otp/send`, {
+    const res = await authFetch(`${API_BASE}/auth/otp/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
@@ -18,7 +29,7 @@ export const api = {
   },
 
   verifyOtp: async (phone: string, code: string) => {
-    const res = await fetch(`${API_BASE}/auth/otp/verify`, {
+    const res = await authFetch(`${API_BASE}/auth/otp/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, code }),
@@ -31,15 +42,16 @@ export const api = {
   },
 
   getMe: async (token?: string) => {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const authToken = token || localStorage.getItem("app_auth_token");
+    const res = await authFetch(`${API_BASE}/auth/me`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
     });
     if (!res.ok) throw new Error("خطا در دریافت اطلاعات کاربر");
     return res.json() as Promise<{ user: User; sessions: UserSession[] }>;
   },
 
   updateProfile: async (data: Partial<User> & { userId: string }) => {
-    const res = await fetch(`${API_BASE}/auth/profile/update`, {
+    const res = await authFetch(`${API_BASE}/auth/profile/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -48,7 +60,7 @@ export const api = {
   },
 
   terminateOtherSessions: async (userId: string, currentSessionId: string) => {
-    const res = await fetch(`${API_BASE}/auth/sessions/terminate-others`, {
+    const res = await authFetch(`${API_BASE}/auth/sessions/terminate-others`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, currentSessionId }),
@@ -58,12 +70,12 @@ export const api = {
 
   // Settings
   getSettings: async () => {
-    const res = await fetch(`${API_BASE}/settings`);
+    const res = await authFetch(`${API_BASE}/settings`);
     return res.json() as Promise<SystemSettings>;
   },
 
   updateSettings: async (settings: Partial<SystemSettings>) => {
-    const res = await fetch(`${API_BASE}/settings`, {
+    const res = await authFetch(`${API_BASE}/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings),
@@ -73,14 +85,14 @@ export const api = {
 
   // Chats
   getChats: async (userId: string) => {
-    const res = await fetch(`${API_BASE}/chats?userId=${userId}`);
+    const res = await authFetch(`${API_BASE}/chats?userId=${userId}`);
     return res.json() as Promise<Chat[]>;
   },
 
   getChatById: async (chatId: string, userId?: string) => {
     let url = `${API_BASE}/chats/${chatId}`;
     if (userId) url += `?userId=${userId}`;
-    const res = await fetch(url);
+    const res = await authFetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "خطا در دریافت گفتگو" }));
       throw new Error(err.error || "خطا در دریافت گفتگو");
@@ -89,7 +101,7 @@ export const api = {
   },
 
   createChat: async (chatData: Partial<Chat>) => {
-    const res = await fetch(`${API_BASE}/chats`, {
+    const res = await authFetch(`${API_BASE}/chats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(chatData),
@@ -102,15 +114,39 @@ export const api = {
   },
 
   // Messages
-  getMessages: async (chatId: string, limit: number = 20, beforeId?: string) => {
+  getMessages: async (
+    chatId: string,
+    opts?: number | { limit?: number; beforeId?: string; afterId?: string; aroundId?: string; userId?: string },
+    beforeIdParam?: string
+  ) => {
+    let limit = 20;
+    let beforeId: string | undefined = beforeIdParam;
+    let afterId: string | undefined;
+    let aroundId: string | undefined;
+    let userId: string | undefined;
+
+    if (typeof opts === "number") {
+      limit = opts;
+    } else if (opts) {
+      if (opts.limit) limit = opts.limit;
+      if (opts.beforeId) beforeId = opts.beforeId;
+      if (opts.afterId) afterId = opts.afterId;
+      if (opts.aroundId) aroundId = opts.aroundId;
+      if (opts.userId) userId = opts.userId;
+    }
+
     let url = `${API_BASE}/chats/${chatId}/messages?limit=${limit}`;
-    if (beforeId) url += `&beforeId=${beforeId}`;
-    const res = await fetch(url);
+    if (beforeId) url += `&beforeId=${encodeURIComponent(beforeId)}`;
+    if (afterId) url += `&afterId=${encodeURIComponent(afterId)}`;
+    if (aroundId) url += `&aroundId=${encodeURIComponent(aroundId)}`;
+    if (userId) url += `&userId=${encodeURIComponent(userId)}`;
+
+    const res = await authFetch(url);
     const data = await res.json();
     if (Array.isArray(data)) {
-      return { messages: data, hasMore: false, total: data.length };
+      return { messages: data, hasMore: false, hasMoreBefore: false, hasMoreAfter: false, firstUnreadMessageId: null, total: data.length };
     }
-    return data as { messages: Message[]; hasMore: boolean; total: number };
+    return data as { messages: Message[]; hasMore?: boolean; hasMoreBefore?: boolean; hasMoreAfter?: boolean; firstUnreadMessageId?: string | null; total: number };
   },
 
   searchChatMessages: async (chatId: string, params: { q?: string; type?: string; senderId?: string; date?: string }) => {
@@ -120,12 +156,12 @@ export const api = {
     if (params.senderId) query.set("senderId", params.senderId);
     if (params.date) query.set("date", params.date);
 
-    const res = await fetch(`${API_BASE}/chats/${chatId}/search?${query.toString()}`);
+    const res = await authFetch(`${API_BASE}/chats/${chatId}/search?${query.toString()}`);
     return res.json() as Promise<Message[]>;
   },
 
   markAsRead: async (chatId: string, userId: string) => {
-    const res = await fetch(`${API_BASE}/chats/${chatId}/read`, {
+    const res = await authFetch(`${API_BASE}/chats/${chatId}/read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
@@ -133,8 +169,22 @@ export const api = {
     return res.json();
   },
 
+  markMessagesAsRead: async (chatId: string, userId: string, messageIds: string[]) => {
+    const res = await authFetch(`${API_BASE}/chats/${chatId}/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, messageIds }),
+    });
+    return res.json();
+  },
+
+  getUnreadSummary: async (userId: string) => {
+    const res = await authFetch(`${API_BASE}/messages/unread-summary?userId=${encodeURIComponent(userId)}`);
+    return res.json() as Promise<{ totalUnread: number; chatsUnread: Record<string, number> }>;
+  },
+
   sendMessage: async (chatId: string, messageData: Partial<Message>) => {
-    const res = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+    const res = await authFetch(`${API_BASE}/chats/${chatId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(messageData),
@@ -147,7 +197,7 @@ export const api = {
   },
 
   editMessage: async (messageId: string, content: string) => {
-    const res = await fetch(`${API_BASE}/messages/${messageId}`, {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
@@ -160,7 +210,7 @@ export const api = {
   },
 
   deleteMessage: async (messageId: string) => {
-    const res = await fetch(`${API_BASE}/messages/${messageId}`, {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}`, {
       method: "DELETE",
     });
     if (!res.ok) {
@@ -171,7 +221,7 @@ export const api = {
   },
 
   toggleReaction: async (messageId: string, emoji: string, userId: string) => {
-    const res = await fetch(`${API_BASE}/messages/${messageId}/reaction`, {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}/reaction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ emoji, userId }),
@@ -179,8 +229,40 @@ export const api = {
     return res.json();
   },
 
+  getMessageReactions: async (messageId: string) => {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}/reactions`);
+    return res.json();
+  },
+
+  getMessageSeens: async (messageId: string) => {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}/seens`);
+    return res.json();
+  },
+
+  // Contacts
+  getContacts: async (userId: string = "user-1") => {
+    const res = await authFetch(`${API_BASE}/contacts?userId=${userId}`);
+    return res.json();
+  },
+
+  addContact: async (userId: string, contactUserId: string, customName?: string) => {
+    const res = await authFetch(`${API_BASE}/contacts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, contactUserId, customName }),
+    });
+    return res.json();
+  },
+
+  deleteContact: async (id: string) => {
+    const res = await authFetch(`${API_BASE}/contacts/${id}`, {
+      method: "DELETE",
+    });
+    return res.json();
+  },
+
   togglePin: async (messageId: string) => {
-    const res = await fetch(`${API_BASE}/messages/${messageId}/pin`, {
+    const res = await authFetch(`${API_BASE}/messages/${messageId}/pin`, {
       method: "POST",
     });
     return res.json();
@@ -290,17 +372,17 @@ export const api = {
 
   // Admin
   getAdminStats: async () => {
-    const res = await fetch(`${API_BASE}/admin/stats`);
+    const res = await authFetch(`${API_BASE}/admin/stats`);
     return res.json();
   },
 
   getAdminUsers: async () => {
-    const res = await fetch(`${API_BASE}/admin/users`);
+    const res = await authFetch(`${API_BASE}/admin/users`);
     return res.json() as Promise<User[]>;
   },
 
   updateUserAdmin: async (userId: string, data: Partial<User>) => {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+    const res = await authFetch(`${API_BASE}/admin/users/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -309,38 +391,38 @@ export const api = {
   },
 
   deleteUserAdmin: async (userId: string) => {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+    const res = await authFetch(`${API_BASE}/admin/users/${userId}`, {
       method: "DELETE",
     });
     return res.json();
   },
 
   toggleBanUser: async (userId: string) => {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}/ban`, {
+    const res = await authFetch(`${API_BASE}/admin/users/${userId}/ban`, {
       method: "POST",
     });
     return res.json();
   },
 
   getUserSessionsAdmin: async (userId: string) => {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}/sessions`);
+    const res = await authFetch(`${API_BASE}/admin/users/${userId}/sessions`);
     return res.json() as Promise<UserSession[]>;
   },
 
   terminateUserSessionsAdmin: async (userId: string) => {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}/terminate-sessions`, {
+    const res = await authFetch(`${API_BASE}/admin/users/${userId}/terminate-sessions`, {
       method: "POST",
     });
     return res.json();
   },
 
   getAdminGroups: async () => {
-    const res = await fetch(`${API_BASE}/admin/groups`);
+    const res = await authFetch(`${API_BASE}/admin/groups`);
     return res.json() as Promise<Chat[]>;
   },
 
   createAdminGroup: async (data: Partial<Chat>) => {
-    const res = await fetch(`${API_BASE}/admin/groups`, {
+    const res = await authFetch(`${API_BASE}/admin/groups`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -349,7 +431,7 @@ export const api = {
   },
 
   updateAdminGroup: async (groupId: string, data: Partial<Chat>) => {
-    const res = await fetch(`${API_BASE}/admin/groups/${groupId}`, {
+    const res = await authFetch(`${API_BASE}/admin/groups/${groupId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -358,19 +440,19 @@ export const api = {
   },
 
   deleteAdminGroup: async (groupId: string) => {
-    const res = await fetch(`${API_BASE}/admin/groups/${groupId}`, {
+    const res = await authFetch(`${API_BASE}/admin/groups/${groupId}`, {
       method: "DELETE",
     });
     return res.json();
   },
 
   getAdminChannels: async () => {
-    const res = await fetch(`${API_BASE}/admin/channels`);
+    const res = await authFetch(`${API_BASE}/admin/channels`);
     return res.json() as Promise<Chat[]>;
   },
 
   createAdminChannel: async (data: Partial<Chat>) => {
-    const res = await fetch(`${API_BASE}/admin/channels`, {
+    const res = await authFetch(`${API_BASE}/admin/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -379,7 +461,7 @@ export const api = {
   },
 
   updateAdminChannel: async (channelId: string, data: Partial<Chat>) => {
-    const res = await fetch(`${API_BASE}/admin/channels/${channelId}`, {
+    const res = await authFetch(`${API_BASE}/admin/channels/${channelId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -388,43 +470,43 @@ export const api = {
   },
 
   deleteAdminChannel: async (channelId: string) => {
-    const res = await fetch(`${API_BASE}/admin/channels/${channelId}`, {
+    const res = await authFetch(`${API_BASE}/admin/channels/${channelId}`, {
       method: "DELETE",
     });
     return res.json();
   },
 
   getAdminMessages: async () => {
-    const res = await fetch(`${API_BASE}/admin/messages`);
+    const res = await authFetch(`${API_BASE}/admin/messages`);
     return res.json() as Promise<{ activeMessages: Message[]; deletedMessages: Message[] }>;
   },
 
   restoreAdminMessage: async (messageId: string) => {
-    const res = await fetch(`${API_BASE}/admin/messages/${messageId}/restore`, {
+    const res = await authFetch(`${API_BASE}/admin/messages/${messageId}/restore`, {
       method: "POST",
     });
     return res.json();
   },
 
   getAdminFiles: async () => {
-    const res = await fetch(`${API_BASE}/admin/files`);
+    const res = await authFetch(`${API_BASE}/admin/files`);
     return res.json() as Promise<{ files: Attachment[]; totalCount: number; totalSizeBytes: number; totalSizeMB: string }>;
   },
 
   deleteAdminFile: async (fileId: string) => {
-    const res = await fetch(`${API_BASE}/admin/files/${fileId}`, {
+    const res = await authFetch(`${API_BASE}/admin/files/${fileId}`, {
       method: "DELETE",
     });
     return res.json();
   },
 
   getAdminLogs: async () => {
-    const res = await fetch(`${API_BASE}/admin/logs`);
+    const res = await authFetch(`${API_BASE}/admin/logs`);
     return res.json() as Promise<SystemAuditLog[]>;
   },
 
   subscribePushNotification: async (subscription: any, userId?: string) => {
-    const res = await fetch(`${API_BASE}/notifications/subscribe`, {
+    const res = await authFetch(`${API_BASE}/notifications/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subscription, userId }),
@@ -433,18 +515,18 @@ export const api = {
   },
 
   getAdminPushSubscriptions: async () => {
-    const res = await fetch(`${API_BASE}/admin/push-subscriptions`);
+    const res = await authFetch(`${API_BASE}/admin/push-subscriptions`);
     return res.json();
   },
 
   // Forbidden Words
   getForbiddenWords: async () => {
-    const res = await fetch(`${API_BASE}/admin/forbidden-words`);
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words`);
     return res.json() as Promise<ForbiddenWord[]>;
   },
 
   createForbiddenWord: async (data: { word: string; category?: WordCategory; isEnabled?: boolean }) => {
-    const res = await fetch(`${API_BASE}/admin/forbidden-words`, {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -457,7 +539,7 @@ export const api = {
   },
 
   updateForbiddenWord: async (id: string, data: Partial<ForbiddenWord>) => {
-    const res = await fetch(`${API_BASE}/admin/forbidden-words/${id}`, {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -470,7 +552,7 @@ export const api = {
   },
 
   deleteForbiddenWord: async (id: string) => {
-    const res = await fetch(`${API_BASE}/admin/forbidden-words/${id}`, {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
       method: "DELETE",
     });
     return res.json();
@@ -478,12 +560,12 @@ export const api = {
 
   // Role Permissions
   getRolePermissions: async () => {
-    const res = await fetch(`${API_BASE}/admin/permissions`);
+    const res = await authFetch(`${API_BASE}/admin/permissions`);
     return res.json() as Promise<RolePermission[]>;
   },
 
   updateRolePermissions: async (permissions: RolePermission[]) => {
-    const res = await fetch(`${API_BASE}/admin/permissions`, {
+    const res = await authFetch(`${API_BASE}/admin/permissions`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ permissions }),
@@ -493,7 +575,7 @@ export const api = {
 
   // User Admin Operations
   createAdminUser: async (data: Partial<User>) => {
-    const res = await fetch(`${API_BASE}/admin/users`, {
+    const res = await authFetch(`${API_BASE}/admin/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -507,7 +589,7 @@ export const api = {
 
   // Room Members & Ownership Admin Operations
   addRoomMemberAdmin: async (chatId: string, userId: string, role: string = "user") => {
-    const res = await fetch(`${API_BASE}/admin/rooms/${chatId}/members`, {
+    const res = await authFetch(`${API_BASE}/admin/rooms/${chatId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, role }),
@@ -520,14 +602,14 @@ export const api = {
   },
 
   removeRoomMemberAdmin: async (chatId: string, userId: string) => {
-    const res = await fetch(`${API_BASE}/admin/rooms/${chatId}/members/${userId}`, {
+    const res = await authFetch(`${API_BASE}/admin/rooms/${chatId}/members/${userId}`, {
       method: "DELETE",
     });
     return res.json() as Promise<Chat>;
   },
 
   updateRoomMemberRoleAdmin: async (chatId: string, userId: string, role: string) => {
-    const res = await fetch(`${API_BASE}/admin/rooms/${chatId}/members/${userId}`, {
+    const res = await authFetch(`${API_BASE}/admin/rooms/${chatId}/members/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role }),
@@ -536,7 +618,7 @@ export const api = {
   },
 
   transferRoomOwnerAdmin: async (chatId: string, newOwnerId: string) => {
-    const res = await fetch(`${API_BASE}/admin/rooms/${chatId}/transfer-owner`, {
+    const res = await authFetch(`${API_BASE}/admin/rooms/${chatId}/transfer-owner`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newOwnerId }),
@@ -550,7 +632,7 @@ export const api = {
 
   // Message ID update (with unique check)
   updateAdminMessageId: async (messageId: string, newId: string, content?: string) => {
-    const res = await fetch(`${API_BASE}/admin/messages/${messageId}/id`, {
+    const res = await authFetch(`${API_BASE}/admin/messages/${messageId}/id`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newId, content }),
@@ -563,18 +645,18 @@ export const api = {
   },
 
   search: async (q: string) => {
-    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+    const res = await authFetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
     return res.json() as Promise<{ users: User[]; chats: Chat[]; messages: Message[] }>;
   },
 
   // Database Settings Admin APIs
   getDatabaseSettings: async () => {
-    const res = await fetch(`${API_BASE}/admin/db-settings`);
+    const res = await authFetch(`${API_BASE}/admin/db-settings`);
     return res.json();
   },
 
   saveDatabaseSettings: async (config: any) => {
-    const res = await fetch(`${API_BASE}/admin/db-settings`, {
+    const res = await authFetch(`${API_BASE}/admin/db-settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -587,7 +669,7 @@ export const api = {
   },
 
   testDatabaseConnection: async (config: any) => {
-    const res = await fetch(`${API_BASE}/admin/db-test`, {
+    const res = await authFetch(`${API_BASE}/admin/db-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -601,12 +683,12 @@ export const api = {
 
   // SMS Panel Settings Admin APIs
   getSmsSettings: async () => {
-    const res = await fetch(`${API_BASE}/admin/sms-settings`);
+    const res = await authFetch(`${API_BASE}/admin/sms-settings`);
     return res.json();
   },
 
   saveSmsSettings: async (config: any) => {
-    const res = await fetch(`${API_BASE}/admin/sms-settings`, {
+    const res = await authFetch(`${API_BASE}/admin/sms-settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -619,7 +701,7 @@ export const api = {
   },
 
   testSmsConnection: async (config: any) => {
-    const res = await fetch(`${API_BASE}/admin/sms-test`, {
+    const res = await authFetch(`${API_BASE}/admin/sms-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -632,7 +714,7 @@ export const api = {
   },
 
   sendTestSms: async (data: { mobile: string; message: string; provider?: string; apiKey?: string; senderNumber?: string; templateId?: string }) => {
-    const res = await fetch(`${API_BASE}/admin/sms-send-test`, {
+    const res = await authFetch(`${API_BASE}/admin/sms-send-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -646,12 +728,12 @@ export const api = {
 
   // Push Notification Admin & Client APIs
   getPushSettings: async () => {
-    const res = await fetch(`${API_BASE}/admin/push-settings`);
+    const res = await authFetch(`${API_BASE}/admin/push-settings`);
     return res.json();
   },
 
   savePushSettings: async (config: any) => {
-    const res = await fetch(`${API_BASE}/admin/push-settings`, {
+    const res = await authFetch(`${API_BASE}/admin/push-settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -664,7 +746,7 @@ export const api = {
   },
 
   generateVapidKeys: async () => {
-    const res = await fetch(`${API_BASE}/admin/push-generate-vapid`, {
+    const res = await authFetch(`${API_BASE}/admin/push-generate-vapid`, {
       method: "POST",
     });
     const data = await res.json();
@@ -675,7 +757,7 @@ export const api = {
   },
 
   subscribePush: async (subscription: any, userId?: string) => {
-    const res = await fetch(`${API_BASE}/subscribe`, {
+    const res = await authFetch(`${API_BASE}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subscription, userId }),
@@ -688,7 +770,7 @@ export const api = {
   },
 
   unsubscribePush: async (endpoint: string) => {
-    const res = await fetch(`${API_BASE}/subscribe`, {
+    const res = await authFetch(`${API_BASE}/subscribe`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ endpoint }),
@@ -697,7 +779,7 @@ export const api = {
   },
 
   sendTestPush: async (data: { title: string; message: string; iconUrl?: string; imageUrl?: string; targetUser?: string; link?: string }) => {
-    const res = await fetch(`${API_BASE}/admin/push-test`, {
+    const res = await authFetch(`${API_BASE}/admin/push-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -705,6 +787,41 @@ export const api = {
     const resData = await res.json();
     if (!res.ok || !resData.success) {
       throw new Error(resData.error || resData.message || "ارسال Push تستی با خطا مواجه شد");
+    }
+    return resData;
+  },
+
+  getPushPolicy: async () => {
+    const res = await authFetch(`${API_BASE}/admin/push-policy`);
+    return res.json() as Promise<{ policy: "always" | "offline_only" | "mentions_only" | "direct_only" | "disabled" }>;
+  },
+
+  updatePushPolicy: async (policy: string) => {
+    const res = await authFetch(`${API_BASE}/admin/push-policy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ policy }),
+    });
+    return res.json();
+  },
+
+  sendAdminPush: async (data: {
+    targetType: "all" | "user" | "room";
+    targetId?: string;
+    title: string;
+    message: string;
+    link?: string;
+    iconUrl?: string;
+    imageUrl?: string;
+  }) => {
+    const res = await authFetch(`${API_BASE}/admin/push-send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const resData = await res.json();
+    if (!res.ok || !resData.success) {
+      throw new Error(resData.error || resData.message || "ارسال نوتیفیکیشن با خطا مواجه شد");
     }
     return resData;
   },

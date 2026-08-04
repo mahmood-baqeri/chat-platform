@@ -65,6 +65,7 @@ export interface SystemSettings {
   registrationEnabled: boolean;
   loginEnabled: boolean;
   otpEnabled: boolean;
+  sessionTimeoutMinutes: number;
   channelsEnabled: boolean;
   groupsEnabled: boolean;
   callsEnabled: boolean;
