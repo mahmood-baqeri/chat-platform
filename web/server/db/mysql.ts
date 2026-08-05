@@ -50,12 +50,18 @@ export async function runMySQLMigrations(): Promise<boolean> {
       const sqlScript = fs.readFileSync(schemaPath, "utf-8");
       await pool.query(sqlScript);
 
-      // Step 3: Ensure missing columns like push_policy are added if running against existing DB
+      // Step 3: Ensure missing columns are added if running against existing DB
       try {
         await pool.query("ALTER TABLE `system_settings` ADD COLUMN `push_policy` VARCHAR(64) DEFAULT 'always';");
-      } catch (e: any) {
-        // Ignore if column already exists
-      }
+      } catch (e: any) {}
+
+      try {
+        await pool.query("ALTER TABLE `messages` ADD COLUMN `attachments` LONGTEXT NULL;");
+      } catch (e: any) {}
+
+      try {
+        await pool.query("ALTER TABLE `messages` ADD COLUMN `forwarded_from` LONGTEXT NULL;");
+      } catch (e: any) {}
 
       console.log("✅ MySQL Schema and seed migration completed successfully!");
       return true;

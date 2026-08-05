@@ -22,6 +22,7 @@ export const ProfileSettingsModal: React.FC = () => {
   const [displayName, setDisplayName] = useState(currentUser?.displayName || "");
   const [username, setUsername] = useState(currentUser?.username || "");
   const [bio, setBio] = useState(currentUser?.bio || "");
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || "");
   const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -76,6 +77,7 @@ export const ProfileSettingsModal: React.FC = () => {
         displayName,
         username,
         bio,
+        avatarUrl,
       });
       setCurrentUser(res.user);
       setSuccessMsg("تغییرات با موفقیت ذخیره شدند");
@@ -85,6 +87,22 @@ export const ProfileSettingsModal: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("حجم تصویر نباید بیشتر از ۱۰ مگابایت باشد");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setAvatarUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTerminateOtherSessions = async () => {
@@ -214,6 +232,29 @@ export const ProfileSettingsModal: React.FC = () => {
         </div>
 
         <form onSubmit={handleUpdate} className="space-y-4 mb-6">
+          {/* Avatar Picture Selector */}
+          <div className="flex items-center gap-4 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/80">
+            <div className="relative group">
+              <img
+                src={avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
+                alt="Avatar"
+                className="w-14 h-14 rounded-full object-cover ring-2 ring-cyan-500/40"
+              />
+              <label className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <Camera className="w-5 h-5 text-white" />
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              </label>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-slate-200">تصویر پروفایل</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">برای تغییر تصویر روی عکس کلیک کنید یا دکمه تغییر عکس را بزنید</p>
+              <label className="inline-block mt-1.5 px-3 py-1 rounded-lg bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold cursor-pointer hover:bg-cyan-600/30">
+                تغییر تصویر پروفایل
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">نام</label>

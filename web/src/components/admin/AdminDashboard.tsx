@@ -2475,6 +2475,32 @@ export const AdminDashboard: React.FC = () => {
               <button type="button" onClick={() => setShowCreateRoomModal(false)} className="p-1 text-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3 text-xs">
+              <div className="flex items-center gap-3 bg-slate-900 border border-white/10 rounded-xl p-2">
+                {newRoomForm.avatarUrl ? (
+                  <img src={newRoomForm.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-bold">عکس</div>
+                )}
+                <label className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-semibold cursor-pointer hover:bg-blue-600/30">
+                  انتخاب تصویر {newRoomForm.type === "group" ? "گروه" : "کانال"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        if (ev.target?.result) {
+                          setNewRoomForm({ ...newRoomForm, avatarUrl: ev.target.result as string });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
               <input type="text" required value={newRoomForm.title} onChange={(e) => setNewRoomForm({ ...newRoomForm, title: e.target.value })} placeholder="عنوان یا نام..." className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />
               <input type="text" value={newRoomForm.username} onChange={(e) => setNewRoomForm({ ...newRoomForm, username: e.target.value })} placeholder="نام کاربری عمومی (مثلا my_group)" className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />
               <textarea value={newRoomForm.description} onChange={(e) => setNewRoomForm({ ...newRoomForm, description: e.target.value })} placeholder="توضیحات..." className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />
@@ -2496,6 +2522,28 @@ export const AdminDashboard: React.FC = () => {
               <button type="button" onClick={() => setEditingRoom(null)} className="p-1 text-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3 text-xs">
+              <div className="flex items-center gap-3 bg-slate-900 border border-white/10 rounded-xl p-2">
+                <img src={editingRoom.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200"} alt="" className="w-10 h-10 rounded-full object-cover" />
+                <label className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-semibold cursor-pointer hover:bg-blue-600/30">
+                  تغییر تصویر {editingRoom.type === "group" ? "گروه" : "کانال"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        if (ev.target?.result) {
+                          setEditingRoom({ ...editingRoom, avatarUrl: ev.target.result as string });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
               <div>
                 <label className="text-slate-400 block mb-1">عنوان:</label>
                 <input type="text" value={editingRoom.title} onChange={(e) => setEditingRoom({ ...editingRoom, title: e.target.value })} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />

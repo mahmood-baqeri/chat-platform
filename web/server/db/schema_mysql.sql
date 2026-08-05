@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS `messages` (
   `is_pinned` TINYINT(1) DEFAULT 0,
   `reply_to_id` VARCHAR(64) NULL,
   `forward_from_id` VARCHAR(64) NULL,
+  `attachments` LONGTEXT NULL,
+  `forwarded_from` LONGTEXT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`chat_id`) REFERENCES `rooms`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE

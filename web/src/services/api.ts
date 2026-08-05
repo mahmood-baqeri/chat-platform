@@ -95,7 +95,9 @@ export const api = {
     const res = await authFetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "خطا در دریافت گفتگو" }));
-      throw new Error(err.error || "خطا در دریافت گفتگو");
+      const error: any = new Error(err.error || "خطا در دریافت گفتگو");
+      error.status = res.status;
+      throw error;
     }
     return res.json() as Promise<Chat>;
   },
@@ -142,6 +144,12 @@ export const api = {
     if (userId) url += `&userId=${encodeURIComponent(userId)}`;
 
     const res = await authFetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "خطا در دریافت پیام‌ها" }));
+      const error: any = new Error(err.error || "خطا در دریافت پیام‌ها");
+      error.status = res.status;
+      throw error;
+    }
     const data = await res.json();
     if (Array.isArray(data)) {
       return { messages: data, hasMore: false, hasMoreBefore: false, hasMoreAfter: false, firstUnreadMessageId: null, total: data.length };

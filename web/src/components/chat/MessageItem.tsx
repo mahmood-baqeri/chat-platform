@@ -43,6 +43,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
     highlightedMessageId,
     activeOpenMenuId,
     setActiveOpenMenuId,
+    jumpToMessage,
   } = useChat();
 
   const [showSeenModal, setShowSeenModal] = useState(false);
@@ -221,7 +222,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
       data-unread={isUnread ? "true" : "false"}
       className={`message-item flex flex-col my-1.5 group relative transition-all duration-300 p-1 rounded-2xl ${
         isHighlighted ? "ring-2 ring-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-[1.01]" : ""
-      } ${isMe ? "items-start" : "items-end"}`}
+      } ${isMe ? "items-end" : "items-start"}`}
     >
       {/* Pinned Tag */}
       {message.isPinned && (
@@ -335,7 +336,8 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
           {/* Reply Quote Banner */}
           {message.replyToMessage && (
             <div
-              className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 ${
+              onClick={() => jumpToMessage(message.replyToMessageId || message.replyToMessage!.id)}
+              className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${
                 isMe
                   ? "bg-black/20 border-white/60 text-blue-100"
                   : "bg-black/20 border-blue-400 text-slate-300"

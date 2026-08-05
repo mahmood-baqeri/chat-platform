@@ -57,8 +57,14 @@ export const ChatPane: React.FC = () => {
   const [showScrollBottomButton, setShowScrollBottomButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const prevScrollHeightRef = useRef<number>(0);
+
+  const isPrependingRef = useRef(false);
+  const preScrollHeightRef = useRef<number>(0);
+  const preScrollTopRef = useRef<number>(0);
+  const isAppendingRef = useRef(false);
   const initialScrolledChatRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+
   const pendingReadIdsRef = useRef<Set<string>>(new Set());
   const readTimeoutRef = useRef<any>(null);
 
@@ -121,7 +127,7 @@ export const ChatPane: React.FC = () => {
     }
   };
 
-  // 1. Initial Positioning on Chat Entry (Fix scroll bug: scroll to unread ONCE per room switch)
+  // 1. Initial Positioning on Chat Entry (only ONCE per room switch)
   useEffect(() => {
     if (!activeChat || isChatLoading) return;
 
@@ -131,23 +137,55 @@ export const ChatPane: React.FC = () => {
         if (firstUnreadMessageId) {
           const unreadEl = document.getElementById(`message-${firstUnreadMessageId}`);
           if (unreadEl) {
-            unreadEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            unreadEl.scrollIntoView({ behavior: "auto", block: "center" });
             return;
           }
         }
-        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-      }, 150);
-    } else if (scrollContainerRef.current) {
-      // Auto-scroll to bottom only when new message arrives AND user is already at bottom
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
-      if (isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+      }, 50);
+    }
+  }, [activeChat?.id, isChatLoading, firstUnreadMessageId]);
+
+  // 2. Adjust Scroll Position when Messages update (Prepend/Append preservation)
+  React.useLayoutEffect(() => {
+    if (!scrollContainerRef.current || !activeChat) return;
+    const container = scrollContainerRef.current;
+
+    if (isPrependingRef.current) {
+      isPrependingRef.current = false;
+      const newScrollHeight = container.scrollHeight;
+      const heightDiff = newScrollHeight - preScrollHeightRef.current;
+      container.scrollTop = preScrollTopRef.current + heightDiff;
+      return;
+    }
+
+    if (isAppendingRef.current) {
+      isAppendingRef.current = false;
+      // Scroll position remains naturally positioned as new items land below
+      return;
+    }
+  }, [messages, activeChat]);
+
+  // 3. Real-time New Message Auto-scroll (When new message arrives or sent)
+  useEffect(() => {
+    if (!scrollContainerRef.current || messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMessageIdRef.current && lastMsg && lastMsg.id !== lastMessageIdRef.current) {
+      if (!isAppendingRef.current && !hasMoreAfter) {
+        const container = scrollContainerRef.current;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        const isFromMe = currentUser && lastMsg.senderId === currentUser.id;
+        if (isFromMe || distanceFromBottom < 200) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
       }
     }
-  }, [activeChat?.id, isChatLoading, messages.length, firstUnreadMessageId]);
+    lastMessageIdRef.current = lastMsg ? lastMsg.id : null;
+  }, [messages, currentUser, hasMoreAfter]);
 
-  // 2. IntersectionObserver for Viewport-based Read Receipts (Telegram-style)
+  // 4. IntersectionObserver for Viewport-based Read Receipts (Telegram-style)
   useEffect(() => {
     if (!scrollContainerRef.current || !activeChat || !currentUser) return;
 
@@ -190,22 +228,44 @@ export const ChatPane: React.FC = () => {
   }, [activeChat?.id, messages, currentUser, markMessagesAsRead]);
 
   // Handle scroll for Bidirectional Infinite Scroll & Scroll-to-Bottom visibility
-  const handleScroll = async (e: UIEvent<HTMLDivElement>) => {
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     setShowScrollBottomButton(distanceFromBottom > 250);
 
-    if (container.scrollTop < 100 && hasMoreMessages && !isLoadingMoreMessages) {
-      prevScrollHeightRef.current = container.scrollHeight;
-      await loadMoreMessages();
-      setTimeout(() => {
-        if (container) {
-          const newScrollHeight = container.scrollHeight;
-          container.scrollTop = newScrollHeight - prevScrollHeightRef.current;
-        }
-      }, 50);
-    } else if (distanceFromBottom < 100 && hasMoreAfter && !isLoadingNewerMessages) {
-      await loadNewerMessages();
+    const oldestMsgId = messages.length > 0 ? messages[0].id : null;
+    const newestMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
+
+    console.log("📜 [Scroll Event]:", {
+      scrollTop: container.scrollTop,
+      scrollHeight: container.scrollHeight,
+      clientHeight: container.clientHeight,
+      isLoading: isChatLoading,
+      loadingPrevious: isLoadingMoreMessages,
+      loadingNext: isLoadingNewerMessages,
+      hasMoreBefore: hasMoreMessages,
+      hasMoreAfter: hasMoreAfter,
+      beforeId: oldestMsgId,
+      afterId: newestMsgId,
+    });
+
+    // Scroll UP -> Load Older Messages
+    if (container.scrollTop < 150) {
+      if (hasMoreMessages && !isLoadingMoreMessages && !isChatLoading) {
+        console.log("🚀 LOAD PREVIOUS");
+        isPrependingRef.current = true;
+        preScrollHeightRef.current = container.scrollHeight;
+        preScrollTopRef.current = container.scrollTop;
+        loadMoreMessages();
+      }
+    }
+    // Scroll DOWN -> Load Newer Messages
+    if (distanceFromBottom < 150) {
+      if (hasMoreAfter && !isLoadingNewerMessages && !isChatLoading) {
+        console.log("🚀 LOAD NEXT");
+        isAppendingRef.current = true;
+        loadNewerMessages();
+      }
     }
   };
 
@@ -480,6 +540,14 @@ export const ChatPane: React.FC = () => {
               return <MessageItem key={item.message!.id} message={item.message!} />;
             })
           )}
+          {/* Infinite Scroll Bottom Loading Indicator */}
+          {isLoadingNewerMessages && (
+            <div className="flex items-center justify-center gap-2 py-2 text-xs text-blue-500 font-medium">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>در حال دریافت پیام‌های جدیدتر...</span>
+            </div>
+          )}
+
           {/* Real-time Typing Bubble Indicator */}
           {activeTypingList.length > 0 && (
             <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] py-2 px-3.5 rounded-2xl bg-[var(--sidebar)] border border-[var(--border)] w-fit animate-in fade-in duration-200 my-2 shadow-sm">

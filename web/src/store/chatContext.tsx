@@ -208,18 +208,55 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [activeChat, messages]
   );
 
-  const jumpToMessage = useCallback((messageId: string) => {
-    setHighlightedMessageId(messageId);
-    setTimeout(() => {
-      const el = document.getElementById(`message-${messageId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+  const jumpToMessage = useCallback(
+    async (messageId: string) => {
+      if (!activeChat) return;
+
+      const messageExists = messages.some((m) => m.id === messageId);
+      if (messageExists) {
+        setHighlightedMessageId(messageId);
+        setTimeout(() => {
+          const el = document.getElementById(`message-${messageId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 50);
+        setTimeout(() => setHighlightedMessageId(null), 3500);
+        return;
       }
-    }, 100);
-    setTimeout(() => {
-      setHighlightedMessageId(null);
-    }, 3500);
-  }, []);
+
+      // Target message not loaded in current messages array, fetch around target message
+      setIsChatLoading(true);
+      try {
+        const res = await api.getMessages(activeChat.id, { aroundId: messageId });
+        if (res.messages && res.messages.length > 0) {
+          const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
+          setMessages(filtered);
+          setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
+          setHasMoreAfter(res.hasMoreAfter ?? false);
+          setFirstUnreadMessageId(null);
+
+          setHighlightedMessageId(messageId);
+
+          setTimeout(() => {
+            const el = document.getElementById(`message-${messageId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 150);
+
+          setTimeout(() => {
+            setHighlightedMessageId(null);
+          }, 3500);
+        }
+      } catch (e) {
+        console.error("Error jumping to message:", e);
+      } finally {
+        setIsChatLoading(false);
+      }
+    },
+    [activeChat, messages]
+  );
 
   // Pagination State
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -432,6 +469,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // Note: Do NOT auto mark-as-read all messages on room entry. Read status is handled via viewport IntersectionObserver.
       })
+      .catch((err: any) => {
+        if (!isCurrent) return;
+        // Clean auto-redirect on non-existent or inaccessible room (404 or 403)
+        if (err?.status === 404 || err?.status === 403 || err?.message?.includes("پیدا نشد") || err?.message?.includes("عضو")) {
+          setChats((prev) => prev.filter((c) => c.id !== activeChat.id));
+          setActiveChat(null);
+          try {
+            window.history.replaceState({}, "", "/");
+          } catch (e) {}
+          setMobileView("sidebar");
+        }
+      })
       .finally(() => {
         if (isCurrent) {
           setTimeout(() => {
@@ -450,12 +499,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingMoreMessages(true);
     try {
       const oldestId = messages[0].id;
+      console.log("🔽 [Frontend loadMoreMessages] Fetching older messages beforeId:", oldestId);
       const res = await api.getMessages(activeChat.id, { limit: 20, beforeId: oldestId });
       if (res.messages && res.messages.length > 0) {
         const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
-        setMessages((prev) => [...filtered, ...prev]);
+        if (filtered.length > 0) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = filtered.filter((m: Message) => !existingIds.has(m.id));
+            if (newMsgs.length === 0) return prev;
+            return [...newMsgs, ...prev];
+          });
+          setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
+          if (res.hasMoreAfter !== undefined) setHasMoreAfter(res.hasMoreAfter);
+        } else {
+          setHasMoreMessages(false);
+        }
+      } else {
+        setHasMoreMessages(false);
       }
-      setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
     } catch (e) {
       console.error("Error loading previous messages:", e);
     } finally {
@@ -468,12 +530,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingNewerMessages(true);
     try {
       const newestId = messages[messages.length - 1].id;
+      console.log("🔼 [Frontend loadNewerMessages] Fetching newer messages afterId:", newestId);
       const res = await api.getMessages(activeChat.id, { limit: 20, afterId: newestId });
       if (res.messages && res.messages.length > 0) {
         const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
-        setMessages((prev) => [...prev, ...filtered]);
+        if (filtered.length > 0) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = filtered.filter((m: Message) => !existingIds.has(m.id));
+            if (newMsgs.length === 0) return prev;
+            return [...prev, ...newMsgs];
+          });
+          setHasMoreAfter(res.hasMoreAfter ?? res.hasMore ?? false);
+          if (res.hasMoreBefore !== undefined) setHasMoreMessages(res.hasMoreBefore);
+        } else {
+          setHasMoreAfter(false);
+        }
+      } else {
+        setHasMoreAfter(false);
       }
-      setHasMoreAfter(res.hasMoreAfter ?? res.hasMore ?? false);
     } catch (e) {
       console.error("Error loading newer messages:", e);
     } finally {
@@ -639,7 +714,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } catch (err: any) {
-          alert(err.message || "شما عضو این گفتگو نیستید یا این گفتگو وجود ندارد.");
+          // Clean auto-redirect without blocking alert modal on invalid or forbidden chat rooms
+          try {
+            window.history.replaceState({}, "", "/");
+          } catch (e) {}
+          setMobileView("sidebar");
+          if (chats.length > 0) {
+            setActiveChat(chats[0]);
+          } else {
+            setActiveChat(null);
+          }
         }
       }
     };

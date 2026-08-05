@@ -205,6 +205,44 @@ function seedDatabase(db: SqlJsDatabase) {
     INSERT INTO system_settings (id, registration_enabled, login_enabled, otp_enabled, channels_enabled, groups_enabled, max_file_size_mb, push_policy)
     VALUES (1, 1, 1, 1, 1, 1, 25, 'always');
   `);
+
+  // Seed Default Rooms
+  const baseTime = Date.now() - 48 * 3600 * 1000;
+  const room1Time = new Date(baseTime).toISOString();
+  db.run(`
+    INSERT INTO rooms (id, type, title, description, owner_id, created_at) VALUES
+    ('room-1', 'group', 'تیم توسعه محصول (Product Dev)', 'گروه هماهنگی تیم توسعه و معماری سیستم', 'user-1', '${room1Time}'),
+    ('room-2', 'direct', 'سارا احمدی', '', 'user-1', '${room1Time}');
+  `);
+
+  db.run(`
+    INSERT INTO room_members (id, room_id, user_id, role, joined_at) VALUES
+    ('rm-1', 'room-1', 'user-1', 'owner', '${room1Time}'),
+    ('rm-2', 'room-1', 'user-2', 'admin', '${room1Time}'),
+    ('rm-3', 'room-1', 'user-3', 'user', '${room1Time}'),
+    ('rm-4', 'room-1', 'user-4', 'user', '${room1Time}'),
+    ('rm-5', 'room-2', 'user-1', 'owner', '${room1Time}'),
+    ('rm-6', 'room-2', 'user-2', 'user', '${room1Time}');
+  `);
+
+  // Seed 40 Messages in room-1 over time
+  for (let i = 1; i <= 40; i++) {
+    const msgTime = new Date(baseTime + i * 15 * 60 * 1000).toISOString();
+    const senderId = i % 4 === 1 ? 'user-1' : i % 4 === 2 ? 'user-2' : i % 4 === 3 ? 'user-3' : 'user-4';
+    const content = `پیام تست شماره ${i} برای بررسی سیستم Pagination - تاریخچه پیام‌ها در زمان ${i * 15} دقیقه پیش`;
+    db.run(`
+      INSERT INTO messages (id, chat_id, sender_id, type, content, status, created_at)
+      VALUES ('msg-r1-${i}', 'room-1', '${senderId}', 'text', '${content}', 'sent', '${msgTime}');
+    `);
+
+    // Mark messages 1..25 as seen by user-1, messages 26..40 left unread for user-1 to test unread jump
+    if (i <= 25) {
+      db.run(`
+        INSERT INTO message_seens (id, message_id, user_id, room_id, seen_at, created_at)
+        VALUES ('seen-r1-${i}', 'msg-r1-${i}', 'user-1', 'room-1', '${msgTime}', '${msgTime}');
+      `);
+    }
+  }
 }
 
 export async function getDbInstance(): Promise<SqlJsDatabase> {

@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer as createViteServer } from "vite";
@@ -33,11 +34,52 @@ function generateUUIDv4(): string {
   });
 }
 
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+function saveBase64ToFile(dataUrl: string, originalName?: string): string {
+  if (!dataUrl || typeof dataUrl !== "string") return dataUrl;
+  if (!dataUrl.startsWith("data:")) return dataUrl;
+
+  try {
+    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return dataUrl;
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, "base64");
+
+    let ext = "bin";
+    if (mimeType.includes("jpeg") || mimeType.includes("jpg")) ext = "jpg";
+    else if (mimeType.includes("png")) ext = "png";
+    else if (mimeType.includes("gif")) ext = "gif";
+    else if (mimeType.includes("webp")) ext = "webp";
+    else if (mimeType.includes("svg")) ext = "svg";
+    else if (mimeType.includes("pdf")) ext = "pdf";
+    else if (mimeType.includes("mp4")) ext = "mp4";
+    else if (mimeType.includes("mp3")) ext = "mp3";
+    else if (mimeType.includes("ogg") || mimeType.includes("webm") || mimeType.includes("audio")) ext = "webm";
+
+    const cleanName = (originalName || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filename = `${Date.now()}_${Math.floor(Math.random() * 10000)}_${cleanName}.${ext}`;
+    const filePath = path.join(uploadsDir, filename);
+
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/${filename}`;
+  } catch (err) {
+    console.error("Error saving base64 file:", err);
+    return dataUrl;
+  }
+}
+
 const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use("/uploads", express.static(uploadsDir));
 
 // In-Memory Production Ready Store (with rich initial seed data in Persian)
 let systemSettings: SystemSettings = {
@@ -333,6 +375,41 @@ async function dbExecute(sql: string, params: any[] = []): Promise<any> {
   }
 }
 
+function formatMessageFromDB(m: any, reactionsMap: any = {}, seenByMap: any = {}): Message {
+  let attachments: Attachment[] = [];
+  if (m.attachments) {
+    try {
+      attachments = typeof m.attachments === "string" ? JSON.parse(m.attachments) : m.attachments;
+    } catch (e) {}
+  }
+
+  let forwardedFrom = undefined;
+  if (m.forwarded_from) {
+    try {
+      forwardedFrom = typeof m.forwarded_from === "string" ? JSON.parse(m.forwarded_from) : m.forwarded_from;
+    } catch (e) {}
+  }
+
+  const reactions = reactionsMap[m.id] || computeMessageReactions(m.id);
+  const seenBy = seenByMap[m.id] || [];
+
+  return {
+    id: m.id,
+    chatId: m.chat_id,
+    senderId: m.sender_id,
+    type: m.type || "text",
+    content: m.content || "",
+    status: m.status || "sent",
+    isPinned: !!m.is_pinned,
+    replyToMessageId: m.reply_to_id || undefined,
+    forwardedFrom,
+    attachments,
+    createdAt: m.created_at,
+    reactions,
+    seenBy,
+  };
+}
+
 async function loadDataFromDB() {
   try {
     // 1. Load Users
@@ -437,20 +514,7 @@ async function loadDataFromDB() {
           };
         });
 
-      return {
-        id: m.id,
-        chatId: m.chat_id,
-        senderId: m.sender_id,
-        type: m.type || "text",
-        content: m.content || "",
-        status: m.status || "sent",
-        isPinned: !!m.is_pinned,
-        replyToMessageId: m.reply_to_id || undefined,
-        createdAt: m.created_at,
-        reactions,
-        seenBy,
-        attachments: []
-      };
+      return formatMessageFromDB(m, { [m.id]: reactions }, { [m.id]: seenBy });
     });
 
     // Update active lastMessage for chats
@@ -637,7 +701,9 @@ app.post("/api/auth/profile/update", async (req, res) => {
   if (displayName) user.displayName = displayName;
   if (username) user.username = username;
   if (bio !== undefined) user.bio = bio;
-  if (avatarUrl) user.avatarUrl = avatarUrl;
+  if (avatarUrl !== undefined) {
+    user.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "avatar_" + user.id) : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150";
+  }
 
   await dbExecute(
     `UPDATE users SET first_name = ?, last_name = ?, display_name = ?, username = ?, bio = ?, avatar_url = ? WHERE id = ?`,
@@ -701,6 +767,27 @@ function getUserIdFromReq(req: express.Request): string | null {
   return null;
 }
 
+function formatChatForUser(chat: Chat, currentUserId: string): Chat {
+  if (!chat) return chat;
+  if (chat.type !== "direct") return chat;
+
+  // Find the other member in the direct chat
+  const otherMember = (chat.members || []).find((m) => m.userId !== currentUserId) || (chat.members || []).find((m) => m.userId === currentUserId);
+  if (!otherMember) return chat;
+
+  const targetUser = users.find((u) => u.id === otherMember.userId);
+  if (!targetUser) return chat;
+
+  const displayName = targetUser.displayName || `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || targetUser.username || chat.title;
+
+  return {
+    ...chat,
+    title: displayName,
+    avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
+    username: targetUser.username || chat.username,
+  };
+}
+
 // Chats Routes
 app.get("/api/chats", (req, res) => {
   const currentUserId = getUserIdFromReq(req);
@@ -708,8 +795,10 @@ app.get("/api/chats", (req, res) => {
     return res.status(401).json({ error: "احراز هویت انجام نشده است" });
   }
   
-  // Return ONLY chats where user is an explicit member
-  const userChats = chats.filter(c => Array.isArray(c.members) && c.members.some(m => m.userId === currentUserId));
+  // Return ONLY chats where user is an explicit member formatted for current user
+  const userChats = chats
+    .filter(c => Array.isArray(c.members) && c.members.some(m => m.userId === currentUserId))
+    .map(c => formatChatForUser(c, currentUserId));
 
   res.json(userChats);
 });
@@ -736,7 +825,7 @@ app.get("/api/chats/:chatId", (req, res) => {
     return res.status(403).json({ error: "شما عضو این گفتگو نیستید" });
   }
 
-  res.json(targetChat);
+  res.json(formatChatForUser(targetChat, userId));
 });
 
 // FastAPI Proxy Endpoints & Health Check
@@ -800,7 +889,7 @@ app.post("/api/chats", async (req, res) => {
     }
 
     if (existingDirect) {
-      return res.json(existingDirect);
+      return res.json(formatChatForUser(existingDirect, currentUserId || ""));
     }
   }
 
@@ -851,7 +940,41 @@ app.post("/api/chats", async (req, res) => {
   // Send WS event ONLY to members of newChat
   sendChatMembersWSEvent(newChat.members.map(m => m.userId), "chat:created", newChat);
 
-  res.json(newChat);
+  res.json(formatChatForUser(newChat, currentUserId || ""));
+});
+
+app.put("/api/chats/:chatId", async (req, res) => {
+  const { chatId } = req.params;
+  const currentUserId = getUserIdFromReq(req);
+  const chat = chats.find(c => c.id === chatId);
+  if (!chat) return res.status(404).json({ error: "گفتگو پیدا نشد" });
+
+  const { title, description, avatarUrl, username, isPrivate } = req.body;
+
+  const isOwnerOrAdmin =
+    chat.ownerId === currentUserId ||
+    chat.members?.some(m => m.userId === currentUserId && (m.role === "owner" || m.role === "admin")) ||
+    users.find(u => u.id === currentUserId)?.role === "admin";
+
+  if (!isOwnerOrAdmin && chat.type !== "direct") {
+    return res.status(403).json({ error: "شما دسترسی لازم برای تغییر مشخصات این گفت‌وگو را ندارید" });
+  }
+
+  if (title) chat.title = title;
+  if (description !== undefined) chat.description = description;
+  if (username) chat.username = username;
+  if (isPrivate !== undefined) chat.isPrivate = isPrivate;
+  if (avatarUrl !== undefined) {
+    chat.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "room_" + chat.id) : chat.avatarUrl;
+  }
+
+  await dbExecute(
+    `UPDATE rooms SET title = ?, description = ?, username = ?, is_private = ?, avatar_url = ? WHERE id = ?`,
+    [chat.title, chat.description, chat.username || null, chat.isPrivate ? 1 : 0, chat.avatarUrl, chat.id]
+  );
+
+  broadcastWSEvent("chat:updated", chat);
+  res.json(chat);
 });
 
 // Messages Routes with Real DB Pagination & Context
@@ -879,89 +1002,150 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
   const aroundId = req.query.aroundId as string;
   const userId = req.query.userId as string;
 
+  const logPagination = (sqlQuery: string, cursorMsg: any, resultMessages: any[]) => {
+    const ids = resultMessages.map(m => m.id);
+    console.log("-----------------------------------------");
+    console.log("📌 [Pagination Request Cursor]:", { chatId, beforeId, afterId, aroundId, userId, limit });
+    console.log("📍 [Cursor Message]:", cursorMsg ? { id: cursorMsg.id, created_at: cursorMsg.created_at || cursorMsg.createdAt } : "None");
+    console.log("🔍 [Generated SQL]:", sqlQuery);
+    console.log("📦 [Returned Count]:", resultMessages.length);
+    console.log("🆔 [Returned Message IDs]:", ids);
+    console.log("⏮️ [First Returned ID]:", ids[0] || "None");
+    console.log("⏭️ [Last Returned ID]:", ids[ids.length - 1] || "None");
+    console.log("-----------------------------------------");
+  };
+
   // DB Query Helper if active
-  if (isUsingMySQL) {
+  if (isUsingMySQL || db) {
     try {
       if (aroundId) {
-        const target = await dbQuery(`SELECT * FROM messages WHERE id = ?`, [aroundId]);
+        const target = await dbQuery(`SELECT * FROM messages WHERE id = ? AND chat_id = ?`, [aroundId, chatId]);
         if (target && target.length > 0) {
           const targetTime = target[0].created_at;
-          const older = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT 10`, [chatId, targetTime]);
-          const newer = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at > ? ORDER BY created_at ASC LIMIT 10`, [chatId, targetTime]);
-          
+          const targetId = target[0].id;
+
+          const olderQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT 10`;
+          const newerQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) ORDER BY created_at ASC, id ASC LIMIT 10`;
+
+          const older = await dbQuery(olderQuery, [chatId, targetTime, targetTime, targetId]);
+          const newer = await dbQuery(newerQuery, [chatId, targetTime, targetTime, targetId]);
+
           const rawList = [...older.reverse(), target[0], ...newer];
-          const formattedList = rawList.map(m => ({
-            id: m.id,
-            chatId: m.chat_id,
-            senderId: m.sender_id,
-            type: m.type || "text",
-            content: m.content || "",
-            status: m.status || "sent",
-            isPinned: !!m.is_pinned,
-            replyToMessageId: m.reply_to_id || undefined,
-            createdAt: m.created_at,
-            reactions: computeMessageReactions(m.id),
-            seenBy: [],
-            attachments: []
-          }));
+          const formattedList = rawList.map(m => formatMessageFromDB(m));
+
+          const firstMsg = formattedList[0];
+          const lastMsg = formattedList[formattedList.length - 1];
+
+          let hasMoreBefore = false;
+          let hasMoreAfter = false;
+
+          if (firstMsg) {
+            const beforeCheck = await dbQuery(
+              `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) LIMIT 1`,
+              [chatId, firstMsg.createdAt, firstMsg.createdAt, firstMsg.id]
+            );
+            hasMoreBefore = beforeCheck && beforeCheck.length > 0;
+          }
+          if (lastMsg) {
+            const afterCheck = await dbQuery(
+              `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) LIMIT 1`,
+              [chatId, lastMsg.createdAt, lastMsg.createdAt, lastMsg.id]
+            );
+            hasMoreAfter = afterCheck && afterCheck.length > 0;
+          }
+
+          logPagination(`aroundId Query [older: ${olderQuery}, newer: ${newerQuery}]`, target[0], formattedList);
+
           return res.json({
             messages: formattedList,
-            hasMoreBefore: older.length === 10,
-            hasMoreAfter: newer.length === 10,
+            hasMoreBefore,
+            hasMoreAfter,
             firstUnreadMessageId: aroundId,
             total: formattedList.length
           });
+        } else {
+          return res.json({
+            messages: [],
+            hasMoreBefore: false,
+            hasMoreAfter: false,
+            firstUnreadMessageId: null,
+            total: 0
+          });
         }
       } else if (beforeId) {
-        const target = await dbQuery(`SELECT * FROM messages WHERE id = ?`, [beforeId]);
+        const target = await dbQuery(`SELECT * FROM messages WHERE id = ? AND chat_id = ?`, [beforeId, chatId]);
         if (target && target.length > 0) {
           const targetTime = target[0].created_at;
-          const older = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?`, [chatId, targetTime, limit]);
-          const formattedList = older.reverse().map(m => ({
-            id: m.id,
-            chatId: m.chat_id,
-            senderId: m.sender_id,
-            type: m.type || "text",
-            content: m.content || "",
-            status: m.status || "sent",
-            isPinned: !!m.is_pinned,
-            replyToMessageId: m.reply_to_id || undefined,
-            createdAt: m.created_at,
-            reactions: computeMessageReactions(m.id),
-            seenBy: [],
-            attachments: []
-          }));
+          const targetId = target[0].id;
+
+          const sqlQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?`;
+          const older = await dbQuery(sqlQuery, [chatId, targetTime, targetTime, targetId, limit]);
+          const formattedList = older.reverse().map(m => formatMessageFromDB(m));
+
+          let hasMoreBefore = false;
+          if (formattedList.length > 0) {
+            const firstMsg = formattedList[0];
+            const beforeCheck = await dbQuery(
+              `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) LIMIT 1`,
+              [chatId, firstMsg.createdAt, firstMsg.createdAt, firstMsg.id]
+            );
+            hasMoreBefore = beforeCheck && beforeCheck.length > 0;
+          }
+
+          logPagination(sqlQuery, target[0], formattedList);
+
           return res.json({
             messages: formattedList,
-            hasMore: older.length === limit,
-            hasMoreBefore: older.length === limit,
+            hasMore: hasMoreBefore,
+            hasMoreBefore,
+            hasMoreAfter: true,
             total: formattedList.length
+          });
+        } else {
+          return res.json({
+            messages: [],
+            hasMore: false,
+            hasMoreBefore: false,
+            hasMoreAfter: true,
+            total: 0
           });
         }
       } else if (afterId) {
-        const target = await dbQuery(`SELECT * FROM messages WHERE id = ?`, [afterId]);
+        const target = await dbQuery(`SELECT * FROM messages WHERE id = ? AND chat_id = ?`, [afterId, chatId]);
         if (target && target.length > 0) {
           const targetTime = target[0].created_at;
-          const newer = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at > ? ORDER BY created_at ASC LIMIT ?`, [chatId, targetTime, limit]);
-          const formattedList = newer.map(m => ({
-            id: m.id,
-            chatId: m.chat_id,
-            senderId: m.sender_id,
-            type: m.type || "text",
-            content: m.content || "",
-            status: m.status || "sent",
-            isPinned: !!m.is_pinned,
-            replyToMessageId: m.reply_to_id || undefined,
-            createdAt: m.created_at,
-            reactions: computeMessageReactions(m.id),
-            seenBy: [],
-            attachments: []
-          }));
+          const targetId = target[0].id;
+
+          const sqlQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) ORDER BY created_at ASC, id ASC LIMIT ?`;
+          const newer = await dbQuery(sqlQuery, [chatId, targetTime, targetTime, targetId, limit]);
+          const formattedList = newer.map(m => formatMessageFromDB(m));
+
+          let hasMoreAfter = false;
+          if (formattedList.length > 0) {
+            const lastMsg = formattedList[formattedList.length - 1];
+            const afterCheck = await dbQuery(
+              `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) LIMIT 1`,
+              [chatId, lastMsg.createdAt, lastMsg.createdAt, lastMsg.id]
+            );
+            hasMoreAfter = afterCheck && afterCheck.length > 0;
+          }
+
+          logPagination(sqlQuery, target[0], formattedList);
+
           return res.json({
             messages: formattedList,
-            hasMore: newer.length === limit,
-            hasMoreAfter: newer.length === limit,
+            hasMore: hasMoreAfter,
+            hasMoreAfter,
+            hasMoreBefore: true,
             total: formattedList.length
+          });
+        } else {
+          return res.json({
+            messages: [],
+            hasMore: false,
+            hasMoreAfter: false,
+            hasMoreBefore: true,
+            total: 0
           });
         }
       } else {
@@ -972,7 +1156,7 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
             `SELECT m.id, m.created_at FROM messages m 
              LEFT JOIN message_seens ms ON (m.id = ms.message_id AND ms.user_id = ?) 
              WHERE m.chat_id = ? AND m.sender_id != ? AND ms.id IS NULL 
-             ORDER BY m.created_at ASC LIMIT 1`,
+             ORDER BY m.created_at ASC, m.id ASC LIMIT 1`,
             [userId, chatId, userId]
           );
           if (unreadRows && unreadRows.length > 0) {
@@ -981,31 +1165,47 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
         }
 
         if (unreadMsgId) {
-          const target = await dbQuery(`SELECT * FROM messages WHERE id = ?`, [unreadMsgId]);
+          const target = await dbQuery(`SELECT * FROM messages WHERE id = ? AND chat_id = ?`, [unreadMsgId, chatId]);
           if (target && target.length > 0) {
             const targetTime = target[0].created_at;
-            const older = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT 10`, [chatId, targetTime]);
-            const newer = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? AND created_at > ? ORDER BY created_at ASC LIMIT 10`, [chatId, targetTime]);
-            
+            const targetId = target[0].id;
+
+            const olderQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT 10`;
+            const newerQuery = `SELECT * FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) ORDER BY created_at ASC, id ASC LIMIT 10`;
+
+            const older = await dbQuery(olderQuery, [chatId, targetTime, targetTime, targetId]);
+            const newer = await dbQuery(newerQuery, [chatId, targetTime, targetTime, targetId]);
+
             const rawList = [...older.reverse(), target[0], ...newer];
-            const formattedList = rawList.map(m => ({
-              id: m.id,
-              chatId: m.chat_id,
-              senderId: m.sender_id,
-              type: m.type || "text",
-              content: m.content || "",
-              status: m.status || "sent",
-              isPinned: !!m.is_pinned,
-              replyToMessageId: m.reply_to_id || undefined,
-              createdAt: m.created_at,
-              reactions: computeMessageReactions(m.id),
-              seenBy: [],
-              attachments: []
-            }));
+            const formattedList = rawList.map(m => formatMessageFromDB(m));
+
+            const firstMsg = formattedList[0];
+            const lastMsg = formattedList[formattedList.length - 1];
+
+            let hasMoreBefore = false;
+            let hasMoreAfter = false;
+
+            if (firstMsg) {
+              const beforeCheck = await dbQuery(
+                `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) LIMIT 1`,
+                [chatId, firstMsg.createdAt, firstMsg.createdAt, firstMsg.id]
+              );
+              hasMoreBefore = beforeCheck && beforeCheck.length > 0;
+            }
+            if (lastMsg) {
+              const afterCheck = await dbQuery(
+                `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at > ? OR (created_at = ? AND id > ?)) LIMIT 1`,
+                [chatId, lastMsg.createdAt, lastMsg.createdAt, lastMsg.id]
+              );
+              hasMoreAfter = afterCheck && afterCheck.length > 0;
+            }
+
+            logPagination(`Unread Target Query`, target[0], formattedList);
+
             return res.json({
               messages: formattedList,
-              hasMoreBefore: older.length === 10,
-              hasMoreAfter: newer.length === 10,
+              hasMoreBefore,
+              hasMoreAfter,
               firstUnreadMessageId: unreadMsgId,
               total: formattedList.length
             });
@@ -1013,27 +1213,29 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
         }
 
         // Initial room load: last `limit` messages
-        const rows = await dbQuery(`SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC LIMIT ?`, [chatId, limit]);
-        const formattedList = rows.reverse().map(m => ({
-          id: m.id,
-          chatId: m.chat_id,
-          senderId: m.sender_id,
-          type: m.type || "text",
-          content: m.content || "",
-          status: m.status || "sent",
-          isPinned: !!m.is_pinned,
-          replyToMessageId: m.reply_to_id || undefined,
-          createdAt: m.created_at,
-          reactions: computeMessageReactions(m.id),
-          seenBy: [],
-          attachments: []
-        }));
+        const sqlQuery = `SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`;
+        const rows = await dbQuery(sqlQuery, [chatId, limit]);
+        const formattedList = rows.reverse().map(m => formatMessageFromDB(m));
+
+        let hasMoreBefore = false;
+        if (formattedList.length > 0) {
+          const firstMsg = formattedList[0];
+          const beforeCheck = await dbQuery(
+            `SELECT 1 FROM messages WHERE chat_id = ? AND (created_at < ? OR (created_at = ? AND id < ?)) LIMIT 1`,
+            [chatId, firstMsg.createdAt, firstMsg.createdAt, firstMsg.id]
+          );
+          hasMoreBefore = beforeCheck && beforeCheck.length > 0;
+        }
+
         const countRes = await dbQuery(`SELECT COUNT(*) as cnt FROM messages WHERE chat_id = ?`, [chatId]);
         const totalCount = countRes[0]?.cnt || rows.length;
+
+        logPagination(sqlQuery, null, formattedList);
+
         return res.json({
           messages: formattedList,
-          hasMore: totalCount > rows.length,
-          hasMoreBefore: totalCount > rows.length,
+          hasMore: hasMoreBefore,
+          hasMoreBefore,
           hasMoreAfter: false,
           firstUnreadMessageId: null,
           total: totalCount
@@ -1044,15 +1246,26 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
     }
   }
 
-  // Fallback memory array implementation
+  // Memory Fallback Implementation
   let chatMessages = messages.filter(m => m.chatId === chatId);
+  // Sort stably by createdAt then id
+  chatMessages.sort((a, b) => {
+    const tA = a.createdAt || "";
+    const tB = b.createdAt || "";
+    if (tA !== tB) return tA.localeCompare(tB);
+    return a.id.localeCompare(b.id);
+  });
 
   if (aroundId) {
     const targetIdx = chatMessages.findIndex(m => m.id === aroundId);
     if (targetIdx !== -1) {
+      const targetMsg = chatMessages[targetIdx];
       const startIndex = Math.max(0, targetIdx - 10);
       const endIndex = Math.min(chatMessages.length, targetIdx + 11);
       const slice = chatMessages.slice(startIndex, endIndex);
+
+      logPagination(`[Memory aroundId]`, targetMsg, slice);
+
       return res.json({
         messages: slice,
         hasMoreBefore: startIndex > 0,
@@ -1060,28 +1273,62 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
         firstUnreadMessageId: aroundId,
         total: chatMessages.length,
       });
+    } else {
+      return res.json({
+        messages: [],
+        hasMoreBefore: false,
+        hasMoreAfter: false,
+        firstUnreadMessageId: null,
+        total: chatMessages.length,
+      });
     }
   } else if (beforeId) {
     const targetIdx = chatMessages.findIndex(m => m.id === beforeId);
-    if (targetIdx > 0) {
+    if (targetIdx !== -1) {
+      const targetMsg = chatMessages[targetIdx];
       const startIndex = Math.max(0, targetIdx - limit);
       const slice = chatMessages.slice(startIndex, targetIdx);
+
+      logPagination(`[Memory beforeId]`, targetMsg, slice);
+
       return res.json({
         messages: slice,
         hasMore: startIndex > 0,
         hasMoreBefore: startIndex > 0,
+        hasMoreAfter: true,
+        total: chatMessages.length,
+      });
+    } else {
+      return res.json({
+        messages: [],
+        hasMore: false,
+        hasMoreBefore: false,
+        hasMoreAfter: true,
         total: chatMessages.length,
       });
     }
   } else if (afterId) {
     const targetIdx = chatMessages.findIndex(m => m.id === afterId);
-    if (targetIdx !== -1 && targetIdx < chatMessages.length - 1) {
+    if (targetIdx !== -1) {
+      const targetMsg = chatMessages[targetIdx];
       const endIndex = Math.min(chatMessages.length, targetIdx + 1 + limit);
       const slice = chatMessages.slice(targetIdx + 1, endIndex);
+
+      logPagination(`[Memory afterId]`, targetMsg, slice);
+
       return res.json({
         messages: slice,
         hasMore: endIndex < chatMessages.length,
         hasMoreAfter: endIndex < chatMessages.length,
+        hasMoreBefore: true,
+        total: chatMessages.length,
+      });
+    } else {
+      return res.json({
+        messages: [],
+        hasMore: false,
+        hasMoreAfter: false,
+        hasMoreBefore: true,
         total: chatMessages.length,
       });
     }
@@ -1097,6 +1344,9 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
       const startIndex = Math.max(0, targetIdx - 10);
       const endIndex = Math.min(chatMessages.length, targetIdx + 11);
       const slice = chatMessages.slice(startIndex, endIndex);
+
+      logPagination(`[Memory unread]`, unreadMsg, slice);
+
       return res.json({
         messages: slice,
         hasMoreBefore: startIndex > 0,
@@ -1112,10 +1362,13 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
   const startIndex = Math.max(0, total - limit);
   const slice = chatMessages.slice(startIndex, total);
 
+  logPagination(`[Memory Default]`, null, slice);
+
   res.json({
     messages: slice,
     hasMore: startIndex > 0,
     hasMoreBefore: startIndex > 0,
+    hasMoreAfter: false,
     total,
   });
 });
@@ -1362,13 +1615,18 @@ app.post("/api/chats/:chatId/messages", async (req, res) => {
     finalId = generateUUIDv4();
   }
 
+  const processedAttachments = (attachments || []).map((att: Attachment) => ({
+    ...att,
+    url: saveBase64ToFile(att.url, att.name)
+  }));
+
   const newMsg: Message = {
     id: finalId,
     chatId,
     senderId: actualSenderId,
     type: type || "text",
     content: content || "",
-    attachments: attachments || [],
+    attachments: processedAttachments,
     status: "sent",
     createdAt: scheduledFor || new Date().toISOString(),
     replyToMessageId,
@@ -1384,8 +1642,20 @@ app.post("/api/chats/:chatId/messages", async (req, res) => {
 
   // Persist to MySQL / DB
   await dbExecute(
-    `INSERT INTO messages (id, chat_id, sender_id, type, content, status, is_pinned, reply_to_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [newMsg.id, chatId, newMsg.senderId, newMsg.type, newMsg.content, newMsg.status, 0, replyToMessageId || null, newMsg.createdAt]
+    `INSERT INTO messages (id, chat_id, sender_id, type, content, status, is_pinned, reply_to_id, attachments, forwarded_from, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      newMsg.id,
+      chatId,
+      newMsg.senderId,
+      newMsg.type,
+      newMsg.content,
+      newMsg.status,
+      0,
+      replyToMessageId || null,
+      JSON.stringify(newMsg.attachments || []),
+      newMsg.forwardedFrom ? JSON.stringify(newMsg.forwardedFrom) : null,
+      newMsg.createdAt
+    ]
   );
 
   sendRoomWSEvent(chatId, "message:new", newMsg);
@@ -1654,11 +1924,13 @@ app.post("/api/upload", (req, res) => {
   else if (fileType?.startsWith("video/")) type = "video";
   else if (fileType?.startsWith("audio/")) type = "audio";
 
+  const fileUrl = saveBase64ToFile(dataUrl, fileName);
+
   const attachment: Attachment = {
     id: "att-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
-    name: fileName || "فایل ضميمه",
+    name: fileName || "فایل ضمیمه",
     type,
-    url: dataUrl,
+    url: fileUrl,
     size: size || 1024,
     mimeType: fileType || "application/octet-stream",
     duration: duration ? Number(duration) : undefined,
@@ -2030,14 +2302,16 @@ app.get("/api/admin/groups", (req, res) => {
   res.json(groupList);
 });
 
-app.post("/api/admin/groups", (req, res) => {
-  const { title, description, isPrivate, ownerId } = req.body;
+app.post("/api/admin/groups", async (req, res) => {
+  const { title, description, isPrivate, ownerId, avatarUrl } = req.body;
+  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + Date.now()) : "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200&auto=format&fit=crop&q=80";
+
   const newGroup: Chat = {
     id: "chat-group-" + Date.now(),
     type: "group",
     title,
     description: description || "",
-    avatarUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200&auto=format&fit=crop&q=80",
+    avatarUrl: savedAvatar,
     username: "group_" + Math.floor(1000 + Math.random() * 9000),
     isPrivate: !!isPrivate,
     ownerId: ownerId || "user-1",
@@ -2051,32 +2325,45 @@ app.post("/api/admin/groups", (req, res) => {
   };
 
   chats.unshift(newGroup);
+  await dbExecute(
+    `INSERT INTO rooms (id, type, title, description, avatar_url, username, is_private, owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [newGroup.id, newGroup.type, newGroup.title, newGroup.description, newGroup.avatarUrl, newGroup.username, newGroup.isPrivate ? 1 : 0, newGroup.ownerId, newGroup.createdAt]
+  );
   broadcastWSEvent("chat:created", newGroup);
   res.json(newGroup);
 });
 
-app.put("/api/admin/groups/:groupId", (req, res) => {
+app.put("/api/admin/groups/:groupId", async (req, res) => {
   const { groupId } = req.params;
   const group = chats.find(c => c.id === groupId && c.type === "group");
   if (!group) return res.status(404).json({ error: "گروه یافت نشد" });
 
-  const { title, description, isPrivate, ownerId, isArchived, inviteLink } = req.body;
+  const { title, description, isPrivate, ownerId, isArchived, inviteLink, avatarUrl } = req.body;
   if (title) group.title = title;
   if (description !== undefined) group.description = description;
   if (isPrivate !== undefined) group.isPrivate = isPrivate;
   if (ownerId) group.ownerId = ownerId;
   if (isArchived !== undefined) group.isArchived = isArchived;
   if (inviteLink) group.inviteLink = inviteLink;
+  if (avatarUrl !== undefined) {
+    group.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + group.id) : "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200";
+  }
 
+  await dbExecute(
+    `UPDATE rooms SET title = ?, description = ?, is_private = ?, avatar_url = ? WHERE id = ?`,
+    [group.title, group.description, group.isPrivate ? 1 : 0, group.avatarUrl, group.id]
+  );
+  broadcastWSEvent("chat:updated", group);
   res.json(group);
 });
 
-app.delete("/api/admin/groups/:groupId", (req, res) => {
+app.delete("/api/admin/groups/:groupId", async (req, res) => {
   const { groupId } = req.params;
   const index = chats.findIndex(c => c.id === groupId);
   if (index === -1) return res.status(404).json({ error: "گروه یافت نشد" });
 
   chats.splice(index, 1);
+  await dbExecute(`DELETE FROM rooms WHERE id = ?`, [groupId]);
   res.json({ message: "گروه با موفقیت حذف شد" });
 });
 
@@ -2086,14 +2373,16 @@ app.get("/api/admin/channels", (req, res) => {
   res.json(channelList);
 });
 
-app.post("/api/admin/channels", (req, res) => {
-  const { title, description, username, isPrivate, ownerId } = req.body;
+app.post("/api/admin/channels", async (req, res) => {
+  const { title, description, username, isPrivate, ownerId, avatarUrl } = req.body;
+  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + Date.now()) : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80";
+
   const newChannel: Chat = {
     id: "chat-channel-" + Date.now(),
     type: "channel",
     title,
     description: description || "",
-    avatarUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80",
+    avatarUrl: savedAvatar,
     username: username || "channel_" + Math.floor(1000 + Math.random() * 9000),
     isPrivate: !!isPrivate,
     ownerId: ownerId || "user-1",
@@ -2107,21 +2396,33 @@ app.post("/api/admin/channels", (req, res) => {
   };
 
   chats.unshift(newChannel);
+  await dbExecute(
+    `INSERT INTO rooms (id, type, title, description, avatar_url, username, is_private, owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [newChannel.id, newChannel.type, newChannel.title, newChannel.description, newChannel.avatarUrl, newChannel.username, newChannel.isPrivate ? 1 : 0, newChannel.ownerId, newChannel.createdAt]
+  );
   broadcastWSEvent("chat:created", newChannel);
   res.json(newChannel);
 });
 
-app.put("/api/admin/channels/:channelId", (req, res) => {
+app.put("/api/admin/channels/:channelId", async (req, res) => {
   const { channelId } = req.params;
   const channel = chats.find(c => c.id === channelId && c.type === "channel");
   if (!channel) return res.status(404).json({ error: "کانال یافت نشد" });
 
-  const { title, description, username, isPrivate } = req.body;
+  const { title, description, username, isPrivate, avatarUrl } = req.body;
   if (title) channel.title = title;
   if (description !== undefined) channel.description = description;
   if (username) channel.username = username;
   if (isPrivate !== undefined) channel.isPrivate = isPrivate;
+  if (avatarUrl !== undefined) {
+    channel.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + channel.id) : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200";
+  }
 
+  await dbExecute(
+    `UPDATE rooms SET title = ?, description = ?, username = ?, is_private = ?, avatar_url = ? WHERE id = ?`,
+    [channel.title, channel.description, channel.username || null, channel.isPrivate ? 1 : 0, channel.avatarUrl, channel.id]
+  );
+  broadcastWSEvent("chat:updated", channel);
   res.json(channel);
 });
 
@@ -2774,12 +3075,15 @@ function broadcastWSEvent(event: string, data: any, excludeWs?: WebSocket) {
 
 function sendChatMembersWSEvent(memberUserIds: string[], event: string, data: any, excludeWs?: WebSocket) {
   const memberSet = new Set(memberUserIds);
-  const payload = JSON.stringify({ event, data });
 
   wsClients.forEach((info, client) => {
     if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
       if (info.userId && memberSet.has(info.userId)) {
-        client.send(payload);
+        let payloadData = data;
+        if (event === "chat:created" && data?.type === "direct") {
+          payloadData = formatChatForUser(data, info.userId);
+        }
+        client.send(JSON.stringify({ event, data: payloadData }));
       }
     }
   });
