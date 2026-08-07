@@ -8,7 +8,7 @@ USE `messenger_db`;
 
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS `users` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `phone` VARCHAR(32) NOT NULL UNIQUE,
   `username` VARCHAR(64) NOT NULL UNIQUE,
   `first_name` VARCHAR(128) NULL,
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 -- 2. User Sessions Table
 CREATE TABLE IF NOT EXISTS `user_sessions` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `user_id` VARCHAR(64) NOT NULL,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
   `device_name` VARCHAR(255) NULL,
   `ip_address` VARCHAR(64) NULL,
   `browser` VARCHAR(255) NULL,
@@ -36,21 +36,10 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Contacts Table
-CREATE TABLE IF NOT EXISTS `contacts` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `user_id` VARCHAR(64) NOT NULL,
-  `contact_user_id` VARCHAR(64) NOT NULL,
-  `custom_name` VARCHAR(255) NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`contact_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4. Rooms / Chats / Channels Table
+-- 3. Rooms / Chats / Channels Table
 CREATE TABLE IF NOT EXISTS `rooms` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `type` VARCHAR(32) NOT NULL, -- 'direct', 'group', 'channel'
+  `type` VARCHAR(32) NOT NULL,
   `title` VARCHAR(255) NOT NULL,
   `username` VARCHAR(64) NULL UNIQUE,
   `avatar_url` TEXT NULL,
@@ -61,16 +50,16 @@ CREATE TABLE IF NOT EXISTS `rooms` (
   `is_pinned` TINYINT(1) DEFAULT 0,
   `unread_count` INT DEFAULT 0,
   `member_count` INT DEFAULT 0,
-  `owner_id` VARCHAR(64) NULL,
+  `owner_id` INT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Room Members Table
+-- 4. Room Members Table
 CREATE TABLE IF NOT EXISTS `room_members` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `room_id` VARCHAR(64) NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
-  `role` VARCHAR(32) DEFAULT 'user', -- 'owner', 'admin', 'user'
+  `user_id` INT NOT NULL,
+  `role` VARCHAR(32) DEFAULT 'user',
   `joined_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `is_muted` TINYINT(1) DEFAULT 0,
   FOREIGN KEY (`room_id`) REFERENCES `rooms`(`id`) ON DELETE CASCADE,
@@ -78,17 +67,17 @@ CREATE TABLE IF NOT EXISTS `room_members` (
   UNIQUE KEY `unique_room_user` (`room_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Messages Table
+-- 5. Messages Table
 CREATE TABLE IF NOT EXISTS `messages` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `chat_id` VARCHAR(64) NOT NULL,
-  `sender_id` VARCHAR(64) NOT NULL,
-  `type` VARCHAR(32) DEFAULT 'text', -- 'text', 'image', 'video', 'voice', 'document', 'location'
+  `sender_id` INT NOT NULL,
+  `type` VARCHAR(32) DEFAULT 'text',
   `content` LONGTEXT NULL,
-  `status` VARCHAR(32) DEFAULT 'sent', -- 'sent', 'delivered', 'seen'
+  `status` VARCHAR(32) DEFAULT 'sent',
   `is_pinned` TINYINT(1) DEFAULT 0,
-  `reply_to_id` VARCHAR(64) NULL,
-  `forward_from_id` VARCHAR(64) NULL,
+  `reply_to_id` INT NULL,
+  `forward_from_id` INT NULL,
   `attachments` LONGTEXT NULL,
   `forwarded_from` LONGTEXT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -96,24 +85,11 @@ CREATE TABLE IF NOT EXISTS `messages` (
   FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Attachments Table
-CREATE TABLE IF NOT EXISTS `attachments` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `message_id` VARCHAR(64) NULL,
-  `file_name` VARCHAR(255) NOT NULL,
-  `file_path` TEXT NOT NULL,
-  `file_size_bytes` BIGINT NOT NULL,
-  `type` VARCHAR(32) NOT NULL,
-  `duration_seconds` INT NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 8. Message Read Receipts (Message Seens) Table
+-- 6. Message Read Receipts (Message Seens) Table
 CREATE TABLE IF NOT EXISTS `message_seens` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `message_id` VARCHAR(64) NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `message_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
   `room_id` VARCHAR(64) NOT NULL,
   `seen_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `delivered_at` DATETIME NULL,
@@ -125,11 +101,11 @@ CREATE TABLE IF NOT EXISTS `message_seens` (
   UNIQUE KEY `unique_message_user_seen` (`message_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Message Reactions Table
+-- 7. Message Reactions Table
 CREATE TABLE IF NOT EXISTS `message_reactions` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `message_id` VARCHAR(64) NOT NULL,
-  `user_id` VARCHAR(64) NOT NULL,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `message_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
   `emoji` VARCHAR(32) NOT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -138,18 +114,37 @@ CREATE TABLE IF NOT EXISTS `message_reactions` (
   UNIQUE KEY `unique_message_user_emoji` (`message_id`, `user_id`, `emoji`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Forbidden Words Table
+-- 8. Forbidden Words Table
 CREATE TABLE IF NOT EXISTS `forbidden_words` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `word` VARCHAR(128) NOT NULL UNIQUE,
   `category` VARCHAR(64) NOT NULL,
   `is_enabled` TINYINT(1) DEFAULT 1,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 9. Push Settings Table
+CREATE TABLE IF NOT EXISTS `push_settings` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `vapid_public_key` TEXT NULL,
+  `vapid_private_key` TEXT NULL,
+  `is_enabled` TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. Push Subscriptions Table
+CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `endpoint` VARCHAR(512) NOT NULL,
+  `subscription_json` LONGTEXT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  UNIQUE KEY `unique_push_endpoint` (`endpoint`(255))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 11. System Settings Table
 CREATE TABLE IF NOT EXISTS `system_settings` (
-  `id` INT NOT NULL PRIMARY KEY DEFAULT 1,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `registration_enabled` TINYINT(1) DEFAULT 1,
   `login_enabled` TINYINT(1) DEFAULT 1,
   `otp_enabled` TINYINT(1) DEFAULT 1,
@@ -165,7 +160,7 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
 
 -- 12. System Audit Logs Table
 CREATE TABLE IF NOT EXISTS `system_audit_logs` (
-  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
   `actor_name` VARCHAR(128) NOT NULL,
   `action` VARCHAR(255) NOT NULL,
   `details` TEXT NULL,
@@ -173,22 +168,27 @@ CREATE TABLE IF NOT EXISTS `system_audit_logs` (
   `timestamp` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 13. Contacts Table
+CREATE TABLE IF NOT EXISTS `contacts` (
+  `id` VARCHAR(64) NOT NULL PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `contact_user_id` INT NOT NULL,
+  `custom_name` VARCHAR(255) NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`contact_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================
 -- SEED INITIAL DATA
 -- ============================================================
 
 INSERT INTO `users` (`id`, `phone`, `username`, `first_name`, `last_name`, `display_name`, `avatar_url`, `bio`, `status`, `role`) VALUES
-('user-1', '09121111111', 'ali_rezaei', 'علی', 'رضایی', 'علی رضایی (مدیر ارشد)', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', 'توسعه‌دهنده سیستم‌های توزیع‌شده', 'online', 'owner'),
-('user-2', '09122222222', 'sara_ahmadi', 'سارا', 'احمدی', 'سارا احمدی', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', 'طراح رابط کاربری', 'online', 'admin'),
-('user-3', '09123333333', 'mohammad_hosseini', 'محمد', 'حسینی', 'محمد حسینی', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', 'مدیر پروژه', 'offline', 'user'),
-('user-4', '09124444444', 'maryam_karimi', 'مریم', 'کریمی', 'مریم کریمی', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80', 'متخصص DevOps', 'online', 'user')
+(1, '09121111111', 'ali_rezaei', 'علی', 'رضایی', 'علی رضایی (مدیر ارشد)', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', 'توسعه‌دهنده سیستم‌های توزیع‌شده', 'online', 'owner'),
+(2, '09122222222', 'sara_ahmadi', 'سارا', 'احمدی', 'سارا احمدی', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', 'طراح رابط کاربری', 'online', 'admin'),
+(3, '09123333333', 'mohammad_hosseini', 'محمد', 'حسینی', 'محمد حسینی', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', 'مدیر پروژه', 'offline', 'user'),
+(4, '09124444444', 'maryam_karimi', 'مریم', 'کریمی', 'مریم کریمی', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80', 'متخصص DevOps', 'online', 'user')
 ON DUPLICATE KEY UPDATE `display_name` = VALUES(`display_name`);
-
-INSERT INTO `contacts` (`id`, `user_id`, `contact_user_id`, `custom_name`, `created_at`) VALUES
-('cnt-1', 'user-1', 'user-2', 'سارا احمدی', NOW()),
-('cnt-2', 'user-1', 'user-3', 'محمد حسینی', NOW()),
-('cnt-3', 'user-1', 'user-4', 'مریم کریمی', NOW())
-ON DUPLICATE KEY UPDATE `custom_name` = VALUES(`custom_name`);
 
 INSERT INTO `system_settings` (`id`, `registration_enabled`, `login_enabled`, `otp_enabled`, `channels_enabled`, `groups_enabled`, `max_file_size_mb`, `push_policy`)
 VALUES (1, 1, 1, 1, 1, 1, 25, 'always')

@@ -17,6 +17,7 @@ import {
   Sparkles,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   ShieldCheck,
   MoreVertical,
   X,
@@ -132,18 +133,20 @@ export const ChatPane: React.FC = () => {
     if (!activeChat || isChatLoading) return;
 
     if (initialScrolledChatRef.current !== activeChat.id) {
-      initialScrolledChatRef.current = activeChat.id;
+      const currentId = activeChat.id;
       setTimeout(() => {
         if (firstUnreadMessageId) {
           const unreadEl = document.getElementById(`message-${firstUnreadMessageId}`);
           if (unreadEl) {
             unreadEl.scrollIntoView({ behavior: "auto", block: "center" });
+            initialScrolledChatRef.current = currentId;
             return;
           }
         }
         if (scrollContainerRef.current) {
           scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
+        initialScrolledChatRef.current = currentId;
       }, 50);
     }
   }, [activeChat?.id, isChatLoading, firstUnreadMessageId]);
@@ -163,7 +166,6 @@ export const ChatPane: React.FC = () => {
 
     if (isAppendingRef.current) {
       isAppendingRef.current = false;
-      // Scroll position remains naturally positioned as new items land below
       return;
     }
   }, [messages, activeChat]);
@@ -176,13 +178,13 @@ export const ChatPane: React.FC = () => {
       if (!isAppendingRef.current && !hasMoreAfter) {
         const container = scrollContainerRef.current;
         const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-        const isFromMe = currentUser && lastMsg.senderId === currentUser.id;
+        const isFromMe = currentUser && String(lastMsg.senderId) === String(currentUser.id);
         if (isFromMe || distanceFromBottom < 200) {
           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
       }
     }
-    lastMessageIdRef.current = lastMsg ? lastMsg.id : null;
+    lastMessageIdRef.current = lastMsg ? String(lastMsg.id) : null;
   }, [messages, currentUser, hasMoreAfter]);
 
   // 4. IntersectionObserver for Viewport-based Read Receipts (Telegram-style)
@@ -227,32 +229,31 @@ export const ChatPane: React.FC = () => {
     };
   }, [activeChat?.id, messages, currentUser, markMessagesAsRead]);
 
+  const handleManualLoadMore = () => {
+    if (scrollContainerRef.current) {
+      isPrependingRef.current = true;
+      preScrollHeightRef.current = scrollContainerRef.current.scrollHeight;
+      preScrollTopRef.current = scrollContainerRef.current.scrollTop;
+    }
+    loadMoreMessages();
+  };
+
   // Handle scroll for Bidirectional Infinite Scroll & Scroll-to-Bottom visibility
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     setShowScrollBottomButton(distanceFromBottom > 250);
 
+    // Only allow infinite scroll trigger after initial positioning for active room completes
+    if (initialScrolledChatRef.current !== activeChat?.id) return;
+
     const oldestMsgId = messages.length > 0 ? messages[0].id : null;
     const newestMsgId = messages.length > 0 ? messages[messages.length - 1].id : null;
-
-    console.log("📜 [Scroll Event]:", {
-      scrollTop: container.scrollTop,
-      scrollHeight: container.scrollHeight,
-      clientHeight: container.clientHeight,
-      isLoading: isChatLoading,
-      loadingPrevious: isLoadingMoreMessages,
-      loadingNext: isLoadingNewerMessages,
-      hasMoreBefore: hasMoreMessages,
-      hasMoreAfter: hasMoreAfter,
-      beforeId: oldestMsgId,
-      afterId: newestMsgId,
-    });
 
     // Scroll UP -> Load Older Messages
     if (container.scrollTop < 150) {
       if (hasMoreMessages && !isLoadingMoreMessages && !isChatLoading) {
-        console.log("🚀 LOAD PREVIOUS");
+        console.log("🚀 LOAD PREVIOUS", { beforeId: oldestMsgId });
         isPrependingRef.current = true;
         preScrollHeightRef.current = container.scrollHeight;
         preScrollTopRef.current = container.scrollTop;
@@ -262,7 +263,7 @@ export const ChatPane: React.FC = () => {
     // Scroll DOWN -> Load Newer Messages
     if (distanceFromBottom < 150) {
       if (hasMoreAfter && !isLoadingNewerMessages && !isChatLoading) {
-        console.log("🚀 LOAD NEXT");
+        console.log("🚀 LOAD NEXT", { afterId: newestMsgId });
         isAppendingRef.current = true;
         loadNewerMessages();
       }
@@ -511,13 +512,23 @@ export const ChatPane: React.FC = () => {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sophisticated-chat-bg custom-scrollbar"
         >
-          {/* Infinite Scroll Top Loading Indicator */}
-          {isLoadingMoreMessages && (
-            <div className="flex items-center justify-center gap-2 py-2 text-xs text-blue-500 font-medium">
+          {/* Infinite Scroll Top Loading Indicator & Manual Button */}
+          {isLoadingMoreMessages ? (
+            <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-blue-500 font-medium">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>در حال دریافت پیام‌های قدیمی‌تر...</span>
             </div>
-          )}
+          ) : hasMoreMessages ? (
+            <div className="flex justify-center my-2">
+              <button
+                onClick={handleManualLoadMore}
+                className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>بارگذاری پیام‌های قدیمی‌تر</span>
+              </button>
+            </div>
+          ) : null}
 
           {messages.length === 0 ? (
             <div className="py-20 text-center text-[var(--text-secondary)]">
@@ -540,13 +551,23 @@ export const ChatPane: React.FC = () => {
               return <MessageItem key={item.message!.id} message={item.message!} />;
             })
           )}
-          {/* Infinite Scroll Bottom Loading Indicator */}
-          {isLoadingNewerMessages && (
-            <div className="flex items-center justify-center gap-2 py-2 text-xs text-blue-500 font-medium">
+          {/* Infinite Scroll Bottom Loading Indicator & Manual Button */}
+          {isLoadingNewerMessages ? (
+            <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-blue-500 font-medium">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>در حال دریافت پیام‌های جدیدتر...</span>
             </div>
-          )}
+          ) : hasMoreAfter ? (
+            <div className="flex justify-center my-2">
+              <button
+                onClick={() => loadNewerMessages()}
+                className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>بارگذاری پیام‌های جدیدتر</span>
+              </button>
+            </div>
+          ) : null}
 
           {/* Real-time Typing Bubble Indicator */}
           {activeTypingList.length > 0 && (
@@ -568,10 +589,10 @@ export const ChatPane: React.FC = () => {
       {/* Message Input Box or Channel Restricted Banner */}
       {(() => {
         const isChannel = activeChat.type === "channel";
-        const userChannelMember = activeChat.members?.find((m) => m.userId === currentUser?.id);
+        const userChannelMember = activeChat.members?.find((m) => String(m.userId) === String(currentUser?.id));
         const isChannelAdmin =
           isChannel &&
-          (activeChat.ownerId === currentUser?.id ||
+          (String(activeChat.ownerId) === String(currentUser?.id) ||
             userChannelMember?.role === "owner" ||
             userChannelMember?.role === "admin" ||
             currentUser?.role === "admin");

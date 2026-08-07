@@ -145,7 +145,7 @@ export const MessageInput: React.FC = () => {
     if (!text.trim() && !uploadProgress) return;
 
     if (editingMessage) {
-      await editMessage(editingMessage.id, text);
+      await editMessage(String(editingMessage.id), text);
       setText("");
       return;
     }
@@ -409,7 +409,7 @@ export const MessageInput: React.FC = () => {
             <div className="bg-[var(--list)] border-r-4 border-blue-500 p-2.5 rounded-xl mb-2 flex items-center justify-between text-xs backdrop-blur-md">
               <div className="min-w-0 pr-1">
                 <p className="font-bold text-blue-500 mb-0.5">
-                  {editingMessage ? "ویرایش پیام" : `پاسخ به ${replyTo?.senderId === currentUser?.id ? "خودتان" : "کاربر"}`}
+                  {editingMessage ? "ویرایش پیام" : `پاسخ به ${String(replyTo?.senderId) === String(currentUser?.id) ? "خودتان" : "کاربر"}`}
                 </p>
                 <p className="text-[var(--text-secondary)] truncate text-[11px]">
                   {editingMessage ? editingMessage.content : replyTo?.content}

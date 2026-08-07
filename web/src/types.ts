@@ -10,7 +10,7 @@ export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'seen';
 export type WordCategory = 'political' | 'insult' | 'ads' | 'spam' | 'custom';
 
 export interface ForbiddenWord {
-  id: string;
+  id: number | string;
   word: string;
   category: WordCategory;
   isEnabled: boolean;
@@ -35,7 +35,7 @@ export interface RolePermission {
 }
 
 export interface User {
-  id: string;
+  id: number | string;
   phone: string;
   username: string;
   firstName: string;
@@ -52,8 +52,8 @@ export interface User {
 }
 
 export interface UserSession {
-  id: string;
-  userId: string;
+  id: number | string;
+  userId: number | string;
   deviceName: string;
   ipAddress: string;
   browser: string;
@@ -99,7 +99,7 @@ export interface SystemSettings {
 export interface MessageReaction {
   emoji: string;
   count: number;
-  users: string[]; // User IDs
+  users: (number | string)[]; // User IDs
 }
 
 export interface Attachment {
@@ -112,7 +112,7 @@ export interface Attachment {
   duration?: number; // for audio/video in seconds
   thumbnailUrl?: string;
   chatId?: string;
-  senderId?: string;
+  senderId?: number | string;
   createdAt?: string;
 }
 
@@ -122,16 +122,16 @@ export interface EditHistoryItem {
 }
 
 export interface MessageSeenInfo {
-  userId: string;
+  userId: number | string;
   userDisplayName?: string;
   userAvatarUrl?: string;
   seenAt: string;
 }
 
 export interface Message {
-  id: string;
+  id: number | string;
   chatId: string;
-  senderId: string;
+  senderId: number | string;
   senderName?: string;
   type: MessageType;
   content: string;
@@ -144,16 +144,16 @@ export interface Message {
   isPinned?: boolean;
   isDeleted?: boolean;
   deletedAt?: string;
-  deletedBy?: string;
-  replyToMessageId?: string;
+  deletedBy?: number | string;
+  replyToMessageId?: number | string;
   replyToMessage?: {
-    id: string;
+    id: number | string;
     senderName: string;
     content: string;
     type: MessageType;
   };
   forwardedFrom?: {
-    id: string;
+    id: number | string;
     name: string;
     chatType: ChatType;
   };
@@ -165,7 +165,7 @@ export interface Message {
 }
 
 export interface ChatMember {
-  userId: string;
+  userId: number | string;
   role: UserRole;
   joinedAt: string;
   isMuted: boolean;
@@ -179,7 +179,7 @@ export interface Chat {
   avatarUrl?: string;
   username?: string; // For public groups / channels
   isPrivate?: boolean;
-  ownerId?: string;
+  ownerId?: number | string;
   members: ChatMember[];
   memberCount: number;
   lastMessage?: Message;
@@ -193,7 +193,7 @@ export interface Chat {
 }
 
 export interface SystemAuditLog {
-  id: string;
+  id: number | string;
   actorName: string;
   action: string;
   details: string;

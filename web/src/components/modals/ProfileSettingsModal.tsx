@@ -44,7 +44,7 @@ export const ProfileSettingsModal: React.FC = () => {
       const res = await permissionManager.requestNotificationPermission(cfg?.vapidPublicKey);
       setNotifPermission(res.status);
       if (res.status === "granted" && res.subscription) {
-        await api.subscribePush(res.subscription, currentUser?.id);
+        await api.subscribePush(res.subscription, String(currentUser?.id || "guest"));
       }
     } catch (err: any) {
       alert(err.message || "خطا در دریافت دسترسی اعلان‌ها");
@@ -71,7 +71,7 @@ export const ProfileSettingsModal: React.FC = () => {
     setSuccessMsg("");
     try {
       const res = await api.updateProfile({
-        userId: currentUser.id,
+        userId: String(currentUser.id),
         firstName,
         lastName,
         displayName,
@@ -107,7 +107,7 @@ export const ProfileSettingsModal: React.FC = () => {
 
   const handleTerminateOtherSessions = async () => {
     if (confirm("آیا مایلید تمام نشست‌های فعال در سایر دستگاه‌ها بسته شوند؟")) {
-      await api.terminateOtherSessions(currentUser.id, sessions[0]?.id || "");
+      await api.terminateOtherSessions(String(currentUser.id), String(sessions[0]?.id || ""));
       alert("تمام نشست‌های دیگر غیرفعال شدند");
     }
   };

@@ -21,8 +21,8 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ message, isOpen, onC
   const eligibleChats = chats.filter((chat) => {
     if (chat.type === "channel") {
       const isOwnerOrAdmin =
-        chat.ownerId === currentUser?.id ||
-        chat.members?.some((m) => m.userId === currentUser?.id && (m.role === "owner" || m.role === "admin")) ||
+        String(chat.ownerId) === String(currentUser?.id) ||
+        chat.members?.some((m) => String(m.userId) === String(currentUser?.id) && (m.role === "owner" || m.role === "admin")) ||
         currentUser?.role === "admin" ||
         currentUser?.role === "super_admin";
       return isOwnerOrAdmin;
@@ -39,8 +39,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ message, isOpen, onC
     if (!selectedChatId || !message) return;
     setIsSending(true);
     try {
-      // Find sender name for forwardedFrom
-      const senderName = message.senderName || "کاربر";
+      const senderName = message.senderName || (String(message.senderId) === String(currentUser?.id) ? (currentUser?.displayName || "شما") : "کاربر");
 
       // Forward message to destination chat
       await sendMessage({

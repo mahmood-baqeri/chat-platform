@@ -119,7 +119,7 @@ export const SearchModal: React.FC = () => {
               {searchResults.map((msg) => (
                 <div
                   key={msg.id}
-                  onClick={() => handleSelectResult(msg.id)}
+                  onClick={() => handleSelectResult(String(msg.id))}
                   className="p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-blue-500/30 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">

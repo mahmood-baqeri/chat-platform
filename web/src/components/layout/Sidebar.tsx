@@ -127,28 +127,26 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Telegram-style Search Bar (only when not in contacts tab) */}
-        {activeTab !== "contacts" && (
-          <div className="relative">
-            <Search className="w-4 h-4 absolute right-3 top-2.5 text-[var(--text-secondary)] pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="جستجوی کاربران، گروه‌ها، کانال‌ها یا پیام‌ها..."
-              className="w-full bg-[var(--list)] text-xs rounded-xl pr-9 pl-8 py-2 border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-blue-500/80 transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute left-2.5 top-2.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                title="پاک کردن"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
+        {/* Telegram-style Search Bar (above all tabs) */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute right-3 top-2.5 text-[var(--text-secondary)] pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="جستجوی مخاطبین، گروه‌ها، کانال‌ها یا پیام‌ها..."
+            className="w-full bg-[var(--list)] text-xs rounded-xl pr-9 pl-8 py-2 border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-blue-500/80 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute left-2.5 top-2.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              title="پاک کردن"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         {/* Category Pills */}
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar text-xs">

@@ -63,6 +63,45 @@ export async function runMySQLMigrations(): Promise<boolean> {
         await pool.query("ALTER TABLE `messages` ADD COLUMN `forwarded_from` LONGTEXT NULL;");
       } catch (e: any) {}
 
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS \`push_settings\` (
+            \`id\` VARCHAR(64) NOT NULL PRIMARY KEY,
+            \`vapid_public_key\` TEXT NULL,
+            \`vapid_private_key\` TEXT NULL,
+            \`is_enabled\` TINYINT(1) DEFAULT 1
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch (e: any) {}
+
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS \`push_subscriptions\` (
+            \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+            \`user_id\` INT NOT NULL,
+            \`endpoint\` VARCHAR(512) NOT NULL,
+            \`subscription_json\` LONGTEXT NOT NULL,
+            \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
+            UNIQUE KEY \`unique_push_endpoint\` (\`endpoint\`(255))
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch (e: any) {}
+
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS \`contacts\` (
+            \`id\` VARCHAR(64) NOT NULL PRIMARY KEY,
+            \`user_id\` INT NOT NULL,
+            \`contact_user_id\` INT NOT NULL,
+            \`custom_name\` VARCHAR(255) NULL,
+            \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
+            FOREIGN KEY (\`contact_user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+      } catch (e: any) {}
+
       console.log("✅ MySQL Schema and seed migration completed successfully!");
       return true;
     } else {

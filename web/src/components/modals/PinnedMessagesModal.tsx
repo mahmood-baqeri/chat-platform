@@ -105,7 +105,7 @@ export const PinnedMessagesModal: React.FC = () => {
               return (
                 <div
                   key={msg.id}
-                  onClick={() => handleJumpToMessage(msg.id)}
+                  onClick={() => handleJumpToMessage(String(msg.id))}
                   className="p-3.5 rounded-2xl bg-[#141724] border border-white/5 hover:border-amber-500/40 hover:bg-white/5 transition-all cursor-pointer group flex items-start gap-3 relative"
                 >
                   <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-white/5 text-slate-300">
@@ -152,7 +152,7 @@ export const PinnedMessagesModal: React.FC = () => {
 
                   {/* Unpin Action Button */}
                   <button
-                    onClick={(e) => handleUnpin(e, msg.id)}
+                    onClick={(e) => handleUnpin(e, String(msg.id))}
                     title="خروج از حالت پین"
                     className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 opacity-80 group-hover:opacity-100 transition-all shrink-0 self-center"
                   >

@@ -38,6 +38,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
     deleteMessage,
     setReplyTo,
     setEditingMessage,
+    setForwardingMessage,
     setActiveMediaUrl,
     setShowAdminPanel,
     highlightedMessageId,
@@ -50,7 +51,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const isMe = currentUser?.id === message.senderId;
+  const isMe = String(currentUser?.id) === String(message.senderId);
   const isMenuOpen = activeOpenMenuId === `menu-${message.id}`;
   const isReactionOpen = activeOpenMenuId === `reaction-${message.id}`;
 
@@ -212,7 +213,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
 
   const isHighlighted = highlightedMessageId === message.id;
   const seenCount = message.seenBy?.length || 0;
-  const isUnread = !isMe && !!currentUser && (!message.seenBy || !message.seenBy.some((s) => s.userId === currentUser.id));
+  const isUnread = !isMe && !!currentUser && (!message.seenBy || !message.seenBy.some((s) => String(s.userId) === String(currentUser.id)));
 
   return (
     <div
@@ -257,7 +258,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
               <button
                 key={emoji}
                 onClick={() => {
-                  toggleReaction(message.id, emoji);
+                  toggleReaction(String(message.id), emoji);
                   setActiveOpenMenuId(null);
                 }}
                 className="w-7 h-7 flex items-center justify-center hover:scale-125 transition-transform text-sm"
@@ -284,6 +285,19 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
               </button>
             )}
 
+            {systemSettings.forwardEnabled && (
+              <button
+                onClick={() => {
+                  setForwardingMessage(message);
+                  setActiveOpenMenuId(null);
+                }}
+                className="w-full text-right px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2 text-emerald-500 hover:text-emerald-400"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>هدایت (فوروارد)</span>
+              </button>
+            )}
+
             {isMe && systemSettings.editMessageEnabled && (
               <button
                 onClick={() => {
@@ -300,7 +314,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
             {systemSettings.pinEnabled && (
               <button
                 onClick={() => {
-                  togglePinMessage(message.id);
+                  togglePinMessage(String(message.id));
                   setActiveOpenMenuId(null);
                 }}
                 className="w-full text-right px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2"
@@ -336,7 +350,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
           {/* Reply Quote Banner */}
           {message.replyToMessage && (
             <div
-              onClick={() => jumpToMessage(message.replyToMessageId || message.replyToMessage!.id)}
+              onClick={() => jumpToMessage(String(message.replyToMessageId || message.replyToMessage!.id))}
               className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${
                 isMe
                   ? "bg-black/20 border-white/60 text-blue-100"
@@ -411,7 +425,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
           {message.reactions.map((rx) => (
             <button
               key={rx.emoji}
-              onClick={() => toggleReaction(message.id, rx.emoji)}
+              onClick={() => toggleReaction(String(message.id), rx.emoji)}
               className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] flex items-center gap-1 hover:bg-slate-700 transition-colors shadow-sm"
             >
               <span>{rx.emoji}</span>
@@ -471,7 +485,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
       <ConfirmDeleteModal
         isOpen={showConfirmDelete}
         onClose={() => setShowConfirmDelete(false)}
-        onConfirm={() => deleteMessage(message.id)}
+        onConfirm={() => deleteMessage(String(message.id))}
       />
     </div>
   );

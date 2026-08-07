@@ -4,10 +4,10 @@ class WebSocketClient {
   private ws: WebSocket | null = null;
   private listeners: Map<string, Set<EventCallback>> = new Map();
   private reconnectTimer: any = null;
-  private userId: string | null = null;
+  private userId: number | string | null = null;
   private isExplicitDisconnect = false;
 
-  connect(userId: string) {
+  connect(userId: number | string) {
     this.userId = userId;
     this.isExplicitDisconnect = false;
 

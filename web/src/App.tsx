@@ -11,11 +11,12 @@ import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { MediaViewerModal } from "./components/media/MediaViewerModal";
 import { PinnedMessagesModal } from "./components/modals/PinnedMessagesModal";
 import { SearchModal } from "./components/chat/SearchModal";
+import { ForwardModal } from "./components/modals/ForwardModal";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { SplashLoader } from "./components/common/SplashLoader";
 
 function AppContent() {
-  const { isAppInitializing, currentUser } = useChat();
+  const { isAppInitializing, currentUser, forwardingMessage, setForwardingMessage } = useChat();
 
   React.useEffect(() => {
     if (!isAppInitializing && !currentUser) {
@@ -77,6 +78,7 @@ function AppContent() {
         <MediaViewerModal />
         <PinnedMessagesModal />
         <SearchModal />
+        <ForwardModal isOpen={!!forwardingMessage} message={forwardingMessage} onClose={() => setForwardingMessage(null)} />
       </ErrorBoundary>
     </div>
   );

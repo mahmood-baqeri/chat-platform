@@ -84,12 +84,12 @@ export const api = {
   },
 
   // Chats
-  getChats: async (userId: string) => {
+  getChats: async (userId: number | string) => {
     const res = await authFetch(`${API_BASE}/chats?userId=${userId}`);
     return res.json() as Promise<Chat[]>;
   },
 
-  getChatById: async (chatId: string, userId?: string) => {
+  getChatById: async (chatId: number | string, userId?: number | string) => {
     let url = `${API_BASE}/chats/${chatId}`;
     if (userId) url += `?userId=${userId}`;
     const res = await authFetch(url);
@@ -117,12 +117,12 @@ export const api = {
 
   // Messages
   getMessages: async (
-    chatId: string,
-    opts?: number | { limit?: number; beforeId?: string; afterId?: string; aroundId?: string; userId?: string },
-    beforeIdParam?: string
+    chatId: number | string,
+    opts?: number | { limit?: number; beforeId?: number | string; afterId?: number | string; aroundId?: number | string; userId?: number | string },
+    beforeIdParam?: number | string
   ) => {
     let limit = 20;
-    let beforeId: string | undefined = beforeIdParam;
+    let beforeId: string | undefined = beforeIdParam !== undefined ? String(beforeIdParam) : undefined;
     let afterId: string | undefined;
     let aroundId: string | undefined;
     let userId: string | undefined;
@@ -131,10 +131,10 @@ export const api = {
       limit = opts;
     } else if (opts) {
       if (opts.limit) limit = opts.limit;
-      if (opts.beforeId) beforeId = opts.beforeId;
-      if (opts.afterId) afterId = opts.afterId;
-      if (opts.aroundId) aroundId = opts.aroundId;
-      if (opts.userId) userId = opts.userId;
+      if (opts.beforeId !== undefined) beforeId = String(opts.beforeId);
+      if (opts.afterId !== undefined) afterId = String(opts.afterId);
+      if (opts.aroundId !== undefined) aroundId = String(opts.aroundId);
+      if (opts.userId !== undefined) userId = String(opts.userId);
     }
 
     let url = `${API_BASE}/chats/${chatId}/messages?limit=${limit}`;
@@ -157,18 +157,18 @@ export const api = {
     return data as { messages: Message[]; hasMore?: boolean; hasMoreBefore?: boolean; hasMoreAfter?: boolean; firstUnreadMessageId?: string | null; total: number };
   },
 
-  searchChatMessages: async (chatId: string, params: { q?: string; type?: string; senderId?: string; date?: string }) => {
+  searchChatMessages: async (chatId: number | string, params: { q?: string; type?: string; senderId?: number | string; date?: string }) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);
     if (params.type) query.set("type", params.type);
-    if (params.senderId) query.set("senderId", params.senderId);
+    if (params.senderId !== undefined) query.set("senderId", String(params.senderId));
     if (params.date) query.set("date", params.date);
 
     const res = await authFetch(`${API_BASE}/chats/${chatId}/search?${query.toString()}`);
     return res.json() as Promise<Message[]>;
   },
 
-  markAsRead: async (chatId: string, userId: string) => {
+  markAsRead: async (chatId: number | string, userId: number | string) => {
     const res = await authFetch(`${API_BASE}/chats/${chatId}/read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -177,7 +177,7 @@ export const api = {
     return res.json();
   },
 
-  markMessagesAsRead: async (chatId: string, userId: string, messageIds: string[]) => {
+  markMessagesAsRead: async (chatId: number | string, userId: number | string, messageIds: (number | string)[]) => {
     const res = await authFetch(`${API_BASE}/chats/${chatId}/read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -186,12 +186,12 @@ export const api = {
     return res.json();
   },
 
-  getUnreadSummary: async (userId: string) => {
-    const res = await authFetch(`${API_BASE}/messages/unread-summary?userId=${encodeURIComponent(userId)}`);
+  getUnreadSummary: async (userId: number | string) => {
+    const res = await authFetch(`${API_BASE}/messages/unread-summary?userId=${encodeURIComponent(String(userId))}`);
     return res.json() as Promise<{ totalUnread: number; chatsUnread: Record<string, number> }>;
   },
 
-  sendMessage: async (chatId: string, messageData: Partial<Message>) => {
+  sendMessage: async (chatId: number | string, messageData: Partial<Message>) => {
     const res = await authFetch(`${API_BASE}/chats/${chatId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -204,7 +204,7 @@ export const api = {
     return res.json() as Promise<Message>;
   },
 
-  editMessage: async (messageId: string, content: string) => {
+  editMessage: async (messageId: number | string, content: string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -217,7 +217,7 @@ export const api = {
     return res.json();
   },
 
-  deleteMessage: async (messageId: string) => {
+  deleteMessage: async (messageId: number | string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}`, {
       method: "DELETE",
     });
@@ -228,7 +228,7 @@ export const api = {
     return res.json();
   },
 
-  toggleReaction: async (messageId: string, emoji: string, userId: string) => {
+  toggleReaction: async (messageId: number | string, emoji: string, userId: number | string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}/reaction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -237,23 +237,23 @@ export const api = {
     return res.json();
   },
 
-  getMessageReactions: async (messageId: string) => {
+  getMessageReactions: async (messageId: number | string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}/reactions`);
     return res.json();
   },
 
-  getMessageSeens: async (messageId: string) => {
+  getMessageSeens: async (messageId: number | string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}/seens`);
     return res.json();
   },
 
   // Contacts
-  getContacts: async (userId: string = "user-1") => {
+  getContacts: async (userId: number | string = 1) => {
     const res = await authFetch(`${API_BASE}/contacts?userId=${userId}`);
     return res.json();
   },
 
-  addContact: async (userId: string, contactUserId: string, customName?: string) => {
+  addContact: async (userId: number | string, contactUserId: number | string, customName?: string) => {
     const res = await authFetch(`${API_BASE}/contacts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -262,14 +262,14 @@ export const api = {
     return res.json();
   },
 
-  deleteContact: async (id: string) => {
+  deleteContact: async (id: number | string) => {
     const res = await authFetch(`${API_BASE}/contacts/${id}`, {
       method: "DELETE",
     });
     return res.json();
   },
 
-  togglePin: async (messageId: string) => {
+  togglePin: async (messageId: number | string) => {
     const res = await authFetch(`${API_BASE}/messages/${messageId}/pin`, {
       method: "POST",
     });

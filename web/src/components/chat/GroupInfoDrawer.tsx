@@ -123,11 +123,11 @@ export const GroupInfoDrawer: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center">
-                      {m.userId.substring(0, 2).toUpperCase()}
+                      {String(m.userId).substring(0, 2).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-slate-200">
-                        {m.userId === currentUser?.id ? "شما" : `کاربر (${m.userId})`}
+                        {String(m.userId) === String(currentUser?.id) ? "شما" : `کاربر (${m.userId})`}
                       </p>
                       <span className="text-[10px] text-blue-400 font-mono">{m.role}</span>
                     </div>

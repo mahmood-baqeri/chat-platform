@@ -88,6 +88,8 @@ interface ChatContextType {
   setReplyTo: (msg: Message | null) => void;
   editingMessage: Message | null;
   setEditingMessage: (msg: Message | null) => void;
+  forwardingMessage: Message | null;
+  setForwardingMessage: (msg: Message | null) => void;
   drafts: { [chatId: string]: string };
   setDraft: (chatId: string, text: string) => void;
   searchQuery: string;
@@ -162,6 +164,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [drafts, setDrafts] = useState<{ [chatId: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -194,9 +197,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         const apiMatches = await api.searchChatMessages(activeChat.id, { q: trimmed }).catch(() => []);
         const combinedMap = new Map<string, Message>();
-        localMatches.forEach((m) => combinedMap.set(m.id, m));
+        localMatches.forEach((m) => combinedMap.set(String(m.id), m));
         if (Array.isArray(apiMatches)) {
-          apiMatches.forEach((m) => combinedMap.set(m.id, m));
+          apiMatches.forEach((m) => combinedMap.set(String(m.id), m));
         }
         setSearchResults(Array.from(combinedMap.values()));
       } catch (err) {
@@ -428,7 +431,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshChats();
     if (currentUser) {
-      requestAllPermissionsAfterLogin(currentUser.id);
+      requestAllPermissionsAfterLogin(String(currentUser.id));
     }
   }, [currentUser]);
 
@@ -438,8 +441,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeChatRef.current = activeChat;
   }, [activeChat]);
 
+  const isLoadingMoreRef = useRef(false);
+  const isLoadingNewerRef = useRef(false);
+
   // Fetch messages when activeChat changes with pagination & unread support
   useEffect(() => {
+    isLoadingMoreRef.current = false;
+    isLoadingNewerRef.current = false;
+
     if (!activeChat) {
       setMessages([]);
       setIsChatLoading(false);
@@ -456,18 +465,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((res) => {
         if (!isCurrent) return;
         if (Array.isArray(res)) {
-          setMessages(res.filter((m: Message) => m.chatId === activeChat.id));
+          setMessages(res);
           setHasMoreMessages(false);
           setHasMoreAfter(false);
           setFirstUnreadMessageId(null);
         } else {
-          const msgs = (res.messages || []).filter((m: Message) => m.chatId === activeChat.id);
+          const msgs = res.messages || [];
           setMessages(msgs);
           setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
           setHasMoreAfter(res.hasMoreAfter ?? false);
           setFirstUnreadMessageId(res.firstUnreadMessageId || null);
         }
-        // Note: Do NOT auto mark-as-read all messages on room entry. Read status is handled via viewport IntersectionObserver.
       })
       .catch((err: any) => {
         if (!isCurrent) return;
@@ -483,32 +491,34 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .finally(() => {
         if (isCurrent) {
-          setTimeout(() => {
-            if (isCurrent) setIsChatLoading(false);
-          }, 250);
+          setIsChatLoading(false);
         }
       });
 
     return () => {
       isCurrent = false;
     };
-  }, [activeChat?.id, currentUser]);
+  }, [activeChat?.id, currentUser?.id]);
 
   const loadMoreMessages = async () => {
-    if (!activeChat || isLoadingMoreMessages || !hasMoreMessages || messages.length === 0) return;
+    if (!activeChat || isLoadingMoreRef.current || isLoadingMoreMessages || !hasMoreMessages || messages.length === 0) return;
+    const oldestId = messages[0].id;
+
+    isLoadingMoreRef.current = true;
     setIsLoadingMoreMessages(true);
     try {
-      const oldestId = messages[0].id;
       console.log("🔽 [Frontend loadMoreMessages] Fetching older messages beforeId:", oldestId);
       const res = await api.getMessages(activeChat.id, { limit: 20, beforeId: oldestId });
-      if (res.messages && res.messages.length > 0) {
-        const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
-        if (filtered.length > 0) {
+      if (res && res.messages && res.messages.length > 0) {
+        const existingIds = new Set(messages.map((m) => String(m.id)));
+        const newMsgs = res.messages.filter((m: Message) => !existingIds.has(String(m.id)));
+
+        if (newMsgs.length > 0) {
           setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const newMsgs = filtered.filter((m: Message) => !existingIds.has(m.id));
-            if (newMsgs.length === 0) return prev;
-            return [...newMsgs, ...prev];
+            const prevIds = new Set(prev.map((m) => String(m.id)));
+            const toAdd = res.messages.filter((m: Message) => !prevIds.has(String(m.id)));
+            if (toAdd.length === 0) return prev;
+            return [...toAdd, ...prev];
           });
           setHasMoreMessages(res.hasMoreBefore ?? res.hasMore ?? false);
           if (res.hasMoreAfter !== undefined) setHasMoreAfter(res.hasMoreAfter);
@@ -522,24 +532,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error loading previous messages:", e);
     } finally {
       setIsLoadingMoreMessages(false);
+      isLoadingMoreRef.current = false;
     }
   };
 
   const loadNewerMessages = async () => {
-    if (!activeChat || isLoadingNewerMessages || !hasMoreAfter || messages.length === 0) return;
+    if (!activeChat || isLoadingNewerRef.current || isLoadingNewerMessages || !hasMoreAfter || messages.length === 0) return;
+    const newestId = messages[messages.length - 1].id;
+
+    isLoadingNewerRef.current = true;
     setIsLoadingNewerMessages(true);
     try {
-      const newestId = messages[messages.length - 1].id;
       console.log("🔼 [Frontend loadNewerMessages] Fetching newer messages afterId:", newestId);
       const res = await api.getMessages(activeChat.id, { limit: 20, afterId: newestId });
-      if (res.messages && res.messages.length > 0) {
-        const filtered = res.messages.filter((m: Message) => m.chatId === activeChat.id);
-        if (filtered.length > 0) {
+      if (res && res.messages && res.messages.length > 0) {
+        const existingIds = new Set(messages.map((m) => String(m.id)));
+        const newMsgs = res.messages.filter((m: Message) => !existingIds.has(String(m.id)));
+
+        if (newMsgs.length > 0) {
           setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const newMsgs = filtered.filter((m: Message) => !existingIds.has(m.id));
-            if (newMsgs.length === 0) return prev;
-            return [...prev, ...newMsgs];
+            const prevIds = new Set(prev.map((m) => String(m.id)));
+            const toAdd = res.messages.filter((m: Message) => !prevIds.has(String(m.id)));
+            if (toAdd.length === 0) return prev;
+            return [...prev, ...toAdd];
           });
           setHasMoreAfter(res.hasMoreAfter ?? res.hasMore ?? false);
           if (res.hasMoreBefore !== undefined) setHasMoreMessages(res.hasMoreBefore);
@@ -553,6 +568,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error loading newer messages:", e);
     } finally {
       setIsLoadingNewerMessages(false);
+      isLoadingNewerRef.current = false;
     }
   };
 
@@ -570,7 +586,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setChats((prev) =>
         prev.map((c) => {
           if (c.id === newMsg.chatId) {
-            const isSelf = currentUser && newMsg.senderId === currentUser.id;
+            const isSelf = currentUser && String(newMsg.senderId) === String(currentUser.id);
             return {
               ...c,
               lastMessage: newMsg,
@@ -582,7 +598,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       // Play notification sound if not current sender
-      if (currentUser && newMsg.senderId !== currentUser.id) {
+      if (currentUser && String(newMsg.senderId) !== String(currentUser.id)) {
         playNotificationSound();
       }
     });
@@ -601,7 +617,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prev.map((m) => {
           if (m.chatId === chatId && (!messageIds || messageIds.includes(m.id))) {
             const seenBy = m.seenBy || [];
-            if (userId && !seenBy.some((s) => s.userId === userId)) {
+            if (userId && !seenBy.some((s) => String(s.userId) === String(userId))) {
               return {
                 ...m,
                 status: "seen",
@@ -642,7 +658,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubChatCreated = wsClient.on("chat:created", (newChat: Chat) => {
       if (!currentUser) return;
-      const isMember = newChat.members?.some((m) => m.userId === currentUser.id);
+      const isMember = newChat.members?.some((m) => String(m.userId) === String(currentUser.id)) || String(newChat.ownerId) === String(currentUser.id);
       if (!isMember) return;
 
       setChats((prev) => {
@@ -824,9 +840,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       setMessages((prev) =>
         prev.map((m) => {
-          if (messageIds.includes(m.id)) {
+          if (messageIds.includes(String(m.id))) {
             const seenBy = m.seenBy || [];
-            if (!seenBy.some((s) => s.userId === currentUser.id)) {
+            if (!seenBy.some((s) => String(s.userId) === String(currentUser.id))) {
               return {
                 ...m,
                 status: "seen",
@@ -932,6 +948,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setReplyTo,
         editingMessage,
         setEditingMessage,
+        forwardingMessage,
+        setForwardingMessage,
         drafts,
         setDraft,
         searchQuery,

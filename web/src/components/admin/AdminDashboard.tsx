@@ -511,7 +511,7 @@ export const AdminDashboard: React.FC = () => {
         });
       }
 
-      await api.subscribePush(sub, currentUser?.id || "admin");
+      await api.subscribePush(sub, String(currentUser?.id || "admin"));
       await fetchPushSettings();
       alert("اشتراک Push مرورگر شما با موفقیت در سیستم ثبت شد.");
     } catch (err: any) {
@@ -622,7 +622,7 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     if (!editingUser) return;
     try {
-      const updated = await api.updateUserAdmin(editingUser.id, editingUser);
+      const updated = await api.updateUserAdmin(String(editingUser.id), editingUser);
       setUsersList((prev) => prev.map((u) => (u.id === editingUser.id ? updated : u)));
       setEditingUser(null);
     } catch (err: any) {
@@ -642,7 +642,7 @@ export const AdminDashboard: React.FC = () => {
         setChannelsList((prev) => [created, ...prev]);
       }
       setShowCreateRoomModal(false);
-      setNewRoomForm({ type: "group", title: "", description: "", avatarUrl: "", username: "", isPrivate: false, ownerId: currentUser?.id || "user-1" });
+      setNewRoomForm({ type: "group", title: "", description: "", avatarUrl: "", username: "", isPrivate: false, ownerId: String(currentUser?.id || "user-1") });
     } catch (err: any) {
       alert(err.message || "خطا در ساخت گفت‌وگو");
     }
@@ -748,7 +748,7 @@ export const AdminDashboard: React.FC = () => {
 
   const handleToggleWordStatus = async (wordItem: ForbiddenWord) => {
     try {
-      const updated = await api.updateForbiddenWord(wordItem.id, { isEnabled: !wordItem.isEnabled });
+      const updated = await api.updateForbiddenWord(String(wordItem.id), { isEnabled: !wordItem.isEnabled });
       setForbiddenWordsList((prev) => prev.map((w) => (w.id === wordItem.id ? updated : w)));
     } catch (err: any) {
       alert(err.message || "خطا در تغییر وضعیت کلمه ممنوعه");
@@ -782,7 +782,7 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     if (!editingMsgModal || !newMsgIdValue.trim()) return;
     try {
-      const updated = await api.updateAdminMessageId(editingMsgModal.id, newMsgIdValue.trim(), newMsgContentValue);
+      const updated = await api.updateAdminMessageId(String(editingMsgModal.id), newMsgIdValue.trim(), newMsgContentValue);
       setMessagesData((prev) => ({
         ...prev,
         activeMessages: prev.activeMessages.map((m) => (m.id === editingMsgModal.id ? updated : m)),
@@ -821,7 +821,7 @@ export const AdminDashboard: React.FC = () => {
         u.displayName.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
         u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
         u.phone.includes(userSearchQuery) ||
-        u.id.toLowerCase().includes(userSearchQuery.toLowerCase())
+        String(u.id).toLowerCase().includes(userSearchQuery.toLowerCase())
     )
     .sort((a, b) => {
       if (userSortBy === "name") return a.displayName.localeCompare(b.displayName);
@@ -842,7 +842,7 @@ export const AdminDashboard: React.FC = () => {
     return matchesSearch && matchesCat;
   });
 
-  const filteredActiveMessages = messagesData.activeMessages.filter((m) => m.id.toLowerCase().includes(msgSearchQuery.toLowerCase()) || m.content.toLowerCase().includes(msgSearchQuery.toLowerCase()));
+  const filteredActiveMessages = messagesData.activeMessages.filter((m) => String(m.id).toLowerCase().includes(msgSearchQuery.toLowerCase()) || m.content.toLowerCase().includes(msgSearchQuery.toLowerCase()));
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200">
@@ -1052,7 +1052,7 @@ export const AdminDashboard: React.FC = () => {
                             <td className="px-4 py-3">
                               <select
                                 value={u.role}
-                                onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
+                                onChange={(e) => handleRoleChange(String(u.id), e.target.value as UserRole)}
                                 className="bg-slate-900 border border-white/10 rounded-lg px-2 py-1 text-[11px] font-bold text-blue-300 focus:outline-none"
                               >
                                 <option value="super_admin">مدیر ارشد (Super Admin)</option>
@@ -1069,7 +1069,7 @@ export const AdminDashboard: React.FC = () => {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1.5">
                                 <button
-                                  onClick={() => handleToggleBan(u.id)}
+                                  onClick={() => handleToggleBan(String(u.id))}
                                   className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
                                     u.isBanned
                                       ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
@@ -1079,7 +1079,7 @@ export const AdminDashboard: React.FC = () => {
                                   {u.isBanned ? "مسدودشده (Banned)" : "فعال (Active)"}
                                 </button>
                                 <button
-                                  onClick={() => handleToggleMute(u.id)}
+                                  onClick={() => handleToggleMute(String(u.id))}
                                   className={`p-1 rounded-md text-[10px] border transition-all ${
                                     u.isMuted
                                       ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
@@ -1106,14 +1106,14 @@ export const AdminDashboard: React.FC = () => {
                                   <Edit className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => handleTerminateSessions(u.id)}
+                                  onClick={() => handleTerminateSessions(String(u.id))}
                                   className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
                                   title="بستن نشست‌ها"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteUser(u.id)}
+                                  onClick={() => handleDeleteUser(String(u.id))}
                                   className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
                                   title="حذف کاربر"
                                 >
@@ -1171,7 +1171,7 @@ export const AdminDashboard: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    setNewRoomForm({ type: activeTab === "groups" ? "group" : "channel", title: "", description: "", avatarUrl: "", username: "", isPrivate: false, ownerId: currentUser?.id || "user-1" });
+                    setNewRoomForm({ type: activeTab === "groups" ? "group" : "channel", title: "", description: "", avatarUrl: "", username: "", isPrivate: false, ownerId: currentUser?.id ? String(currentUser.id) : "1" });
                     setShowCreateRoomModal(true);
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
@@ -1324,7 +1324,7 @@ export const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 text-left">
                             <button
-                              onClick={() => handleDeleteWord(fw.id)}
+                              onClick={() => handleDeleteWord(String(fw.id))}
                               className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1458,11 +1458,11 @@ export const AdminDashboard: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <span>{m.id}</span>
                               <button
-                                onClick={() => handleCopyId(m.id)}
+                                onClick={() => handleCopyId(String(m.id))}
                                 className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
                                 title="کپی شناسه"
                               >
-                                {copiedId === m.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                {copiedId === String(m.id) ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                               </button>
                             </div>
                           </td>
@@ -1474,7 +1474,7 @@ export const AdminDashboard: React.FC = () => {
                               <button
                                 onClick={() => {
                                   setEditingMsgModal(m);
-                                  setNewMsgIdValue(m.id);
+                                  setNewMsgIdValue(String(m.id));
                                   setNewMsgContentValue(m.content);
                                 }}
                                 className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 font-sans text-xs cursor-pointer"
@@ -1482,7 +1482,7 @@ export const AdminDashboard: React.FC = () => {
                                 ویرایش شناسه
                               </button>
                               <button
-                                onClick={() => handleDeleteMessageAdmin(m.id)}
+                                onClick={() => handleDeleteMessageAdmin(String(m.id))}
                                 className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 font-sans text-xs flex items-center gap-1 cursor-pointer"
                                 title="حذف پیام از سیستم"
                               >
@@ -2424,7 +2424,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <select value={newMemberUserId} onChange={(e) => setNewMemberUserId(e.target.value)} className="flex-1 bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white">
                   <option value="">انتخاب کاربر جهت افزودن...</option>
-                  {usersList.filter((u) => !managingRoomMembers.members.some((m) => m.userId === u.id)).map((u) => (
+                  {usersList.filter((u) => !managingRoomMembers.members.some((m) => String(m.userId) === String(u.id))).map((u) => (
                     <option key={u.id} value={u.id}>{u.displayName} (@{u.username})</option>
                   ))}
                 </select>
@@ -2433,8 +2433,8 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
                 {managingRoomMembers.members.map((m) => {
-                  const u = usersList.find((usr) => usr.id === m.userId);
-                  const isOwner = managingRoomMembers.ownerId === m.userId;
+                  const u = usersList.find((usr) => String(usr.id) === String(m.userId));
+                  const isOwner = String(managingRoomMembers.ownerId) === String(m.userId);
                   return (
                     <div key={m.userId} className="p-3 rounded-2xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2.5">
@@ -2448,10 +2448,10 @@ export const AdminDashboard: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         {!isOwner && (
                           <>
-                            <button onClick={() => handleTransferOwnership(m.userId)} className="p-1.5 rounded bg-amber-500/10 text-amber-400 text-[10px]" title="انتقال مالکیت">
+                            <button onClick={() => handleTransferOwnership(String(m.userId))} className="p-1.5 rounded bg-amber-500/10 text-amber-400 text-[10px]" title="انتقال مالکیت">
                               انتقال مالکیت
                             </button>
-                            <button onClick={() => handleRemoveMemberFromRoom(m.userId)} className="p-1.5 rounded bg-rose-500/10 text-rose-400 text-[10px]">
+                            <button onClick={() => handleRemoveMemberFromRoom(String(m.userId))} className="p-1.5 rounded bg-rose-500/10 text-rose-400 text-[10px]">
                               اخراج
                             </button>
                           </>
