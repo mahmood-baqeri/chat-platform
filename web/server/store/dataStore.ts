@@ -13,7 +13,8 @@ import {
   MessageType,
   ChatType,
   UserRole,
-  WordCategory
+  WordCategory,
+  AvatarPhoto
 } from "../models/types.js";
 import { getDbInstance, dbQuery, dbExecute, queryAll } from "../db/index.js";
 import { saveBase64ToFile } from "../config.js";
@@ -174,10 +175,18 @@ export function formatMessageFromDB(m: any): Message {
     };
   });
 
+  const senderUser = users.find(usr => String(usr.id) === String(m.sender_id || m.senderId));
+  const senderName = m.sender_name || m.senderName || (senderUser
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${m.sender_id || m.senderId}`
+    : `کاربر ${m.sender_id || m.senderId}`);
+  const senderAvatar = m.sender_avatar || m.senderAvatar || senderUser?.avatarUrl || AvatarPhoto;
+
   return {
     id: m.id,
-    chatId: m.chat_id,
-    senderId: m.sender_id,
+    chatId: m.chat_id || m.chatId,
+    senderId: m.sender_id || m.senderId,
+    senderName,
+    senderAvatar,
     type: (m.type as MessageType) || "text",
     content: m.content || "",
     status: (m.status as any) || "sent",
@@ -185,7 +194,7 @@ export function formatMessageFromDB(m: any): Message {
     replyToMessageId: m.reply_to_id || undefined,
     attachments,
     forwardedFrom,
-    createdAt: m.created_at,
+    createdAt: m.created_at || m.createdAt,
     reactions: computeMessageReactions(m.id),
     seenBy
   };

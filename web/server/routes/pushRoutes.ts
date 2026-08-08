@@ -11,8 +11,18 @@ import {
   sendNotificationToTargets,
 } from "../services/pushService.js";
 import { dbExecute } from "../db/index.js";
+import { LogoPhoto } from "@/src/types.js";
 
 const router = Router();
+
+// Public route to get VAPID Public Key for client push subscriptions
+router.get("/push-public-key", (req, res) => {
+  const config = getPushConfig();
+  res.json({
+    vapidPublicKey: config.vapidPublicKey,
+    isActive: config.isActive,
+  });
+});
 
 // Get Push Settings
 router.get("/admin/push-settings", (req, res) => {
@@ -111,7 +121,7 @@ router.post("/admin/push-test", async (req, res) => {
     const payload = {
       title: title || "تست واقعی Push Notification",
       body: message || "این یک اعلان Push واقعی ارسال‌شده از سرور می‌باشد.",
-      icon: iconUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150",
+      icon: iconUrl || LogoPhoto,
       image: imageUrl || "",
       url: link || "/",
     };

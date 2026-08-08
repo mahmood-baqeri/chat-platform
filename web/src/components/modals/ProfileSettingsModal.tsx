@@ -3,6 +3,7 @@ import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
 import { permissionManager, PermissionStatus } from "../../utils/permissionManager";
 import { X, User, Laptop, Smartphone, Shield, LogOut, Check, Moon, Sun, Bell, Volume2, VolumeX, Mic, Camera, Lock } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
 
 export const ProfileSettingsModal: React.FC = () => {
   const {
@@ -155,11 +156,10 @@ export const ProfileSettingsModal: React.FC = () => {
             </div>
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                soundEnabled
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${soundEnabled
                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                   : "bg-rose-500/20 text-rose-300 border-rose-500/30"
-              }`}
+                }`}
             >
               {soundEnabled ? "فعال" : "غیرفعال"}
             </button>
@@ -177,13 +177,12 @@ export const ProfileSettingsModal: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRequestNotif}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                  notifPermission === "granted"
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${notifPermission === "granted"
                     ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                     : notifPermission === "denied"
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                    : "bg-purple-600/20 text-purple-300 border-purple-500/30"
-                }`}
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                      : "bg-purple-600/20 text-purple-300 border-purple-500/30"
+                  }`}
               >
                 {notifPermission === "granted" ? "مجوز داده شده" : notifPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
               </button>
@@ -197,13 +196,12 @@ export const ProfileSettingsModal: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRequestMic}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                  micPermission === "granted"
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${micPermission === "granted"
                     ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                     : micPermission === "denied"
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                    : "bg-cyan-600/20 text-cyan-300 border-cyan-500/30"
-                }`}
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                      : "bg-cyan-600/20 text-cyan-300 border-cyan-500/30"
+                  }`}
               >
                 {micPermission === "granted" ? "مجوز داده شده" : micPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
               </button>
@@ -217,13 +215,12 @@ export const ProfileSettingsModal: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRequestCam}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                  camPermission === "granted"
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${camPermission === "granted"
                     ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                     : camPermission === "denied"
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                    : "bg-blue-600/20 text-blue-300 border-blue-500/30"
-                }`}
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                      : "bg-blue-600/20 text-blue-300 border-blue-500/30"
+                  }`}
               >
                 {camPermission === "granted" ? "مجوز داده شده" : camPermission === "denied" ? "مسدود شده" : "درخواست مجوز"}
               </button>
@@ -235,11 +232,7 @@ export const ProfileSettingsModal: React.FC = () => {
           {/* Avatar Picture Selector */}
           <div className="flex items-center gap-4 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/80">
             <div className="relative group">
-              <img
-                src={avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                alt="Avatar"
-                className="w-14 h-14 rounded-full object-cover ring-2 ring-cyan-500/40"
-              />
+              <ShowImage src={avatarUrl} className="w-14 h-14 rounded-full object-cover ring-2 ring-cyan-500/40" />
               <label className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                 <Camera className="w-5 h-5 text-white" />
                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />

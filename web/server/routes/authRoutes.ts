@@ -5,12 +5,15 @@ import {
   otpStore,
   auditLogs,
   systemSettings,
-  chats
+  chats,
+  messages,
+  messageSeens
 } from "../store/dataStore.js";
 import {
   User,
   UserSession,
-  Chat
+  Chat,
+  AvatarPhoto
 } from "../models/types.js";
 import { saveBase64ToFile } from "../config.js";
 import { dbExecute } from "../db/index.js";
@@ -39,22 +42,51 @@ export function getUserIdFromReq(req: Request): string | null {
 
 export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
   if (!chat) return chat;
-  if (chat.type !== "direct") return chat;
 
-  const otherMember = (chat.members || []).find((m) => String(m.userId) !== String(currentUserId)) || (chat.members || []).find((m) => String(m.userId) === String(currentUserId));
-  if (!otherMember) return chat;
+  const chatMsgs = messages.filter(
+    (m) =>
+      String(m.chatId) === String(chat.id) ||
+      String(m.chatId).replace(/^chat-/, "") === String(chat.id).replace(/^chat-/, "")
+  );
 
-  const targetUser = users.find((u) => String(u.id) === String(otherMember.userId));
-  if (!targetUser) return chat;
+  const userUnreadCount = chatMsgs.filter((m) => {
+    if (String(m.senderId) === String(currentUserId)) return false;
+    const isSeenByMe =
+      (m.seenBy && m.seenBy.some((s) => String(s.userId) === String(currentUserId))) ||
+      messageSeens.some(
+        (s) => String(s.messageId) === String(m.id) && String(s.userId) === String(currentUserId)
+      );
+    return !isSeenByMe;
+  }).length;
 
-  const displayName = targetUser.displayName || `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || targetUser.username || chat.title;
-
-  return {
+  let formatted: Chat = {
     ...chat,
-    title: displayName,
-    avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
-    username: targetUser.username || chat.username,
+    unreadCount: userUnreadCount,
   };
+
+  if (chat.type === "direct") {
+    const otherMember =
+      (chat.members || []).find((m) => String(m.userId) !== String(currentUserId)) ||
+      (chat.members || []).find((m) => String(m.userId) === String(currentUserId));
+    if (otherMember) {
+      const targetUser = users.find((u) => String(u.id) === String(otherMember.userId));
+      if (targetUser) {
+        const displayName =
+          targetUser.displayName ||
+          `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() ||
+          targetUser.username ||
+          chat.title;
+        formatted = {
+          ...formatted,
+          title: displayName,
+          avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
+          username: targetUser.username || chat.username,
+        };
+      }
+    }
+  }
+
+  return formatted;
 }
 
 // Health Check
@@ -119,7 +151,7 @@ router.post("/auth/otp/verify", (req: Request, res: Response) => {
       firstName: "کاربر",
       lastName: "جدید",
       displayName: `کاربر ${uname}`,
-      avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+      avatarUrl: AvatarPhoto,
       bio: "کاربر جدید پلتفرم چت",
       status: "online",
       lastSeen: "هم‌اکنون",
@@ -191,7 +223,7 @@ router.post("/auth/profile/update", async (req: Request, res: Response) => {
   if (username) user.username = username;
   if (bio !== undefined) user.bio = bio;
   if (avatarUrl !== undefined) {
-    user.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "avatar_" + user.id) : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150";
+    user.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "avatar_" + user.id) : AvatarPhoto;
   }
 
   await dbExecute(

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
-import { SystemAuditLog, User, Chat, Message, Attachment, ForbiddenWord, RolePermission, UserRole, WordCategory } from "../../types";
+import { SystemAuditLog, User, Chat, Message, Attachment, ForbiddenWord, RolePermission, UserRole, WordCategory, AvatarPhoto, LogoPhoto, NonePhoto } from "../../types";
 import { ConfirmDeleteModal } from "../modals/ConfirmDeleteModal";
 import {
   X,
@@ -42,6 +42,7 @@ import {
   CheckCircle2,
   AlertTriangle
 } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
 
 export const AdminDashboard: React.FC = () => {
   const { showAdminPanel, setShowAdminPanel, systemSettings, updateSettings, currentUser } = useChat();
@@ -128,7 +129,7 @@ export const AdminDashboard: React.FC = () => {
   const [testPushForm, setTestPushForm] = useState({
     title: "اعلان عمومی پلتفرم چت",
     message: "این یک پیام Push تستی واقعی ارسال‌شده به مرورگر شما می‌باشد.",
-    iconUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150",
+    iconUrl: LogoPhoto,
     imageUrl: "",
     targetUser: "all",
     link: "/",
@@ -200,7 +201,7 @@ export const AdminDashboard: React.FC = () => {
     description?: string;
   }>({
     isOpen: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const triggerConfirm = (onConfirmAction: () => Promise<void> | void, title?: string, description?: string) => {
@@ -216,16 +217,16 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const loadData = () => {
-    api.getAdminStats().then(setStats).catch(() => {});
-    api.getAdminUsers().then(setUsersList).catch(() => {});
-    api.getAdminGroups().then(setGroupsList).catch(() => {});
-    api.getAdminChannels().then(setChannelsList).catch(() => {});
-    api.getAdminMessages().then(setMessagesData).catch(() => {});
-    api.getAdminFiles().then(setFilesData).catch(() => {});
-    api.getAdminLogs().then(setLogs).catch(() => {});
-    api.getAdminPushSubscriptions().then(setPushSubs).catch(() => {});
-    api.getForbiddenWords().then(setForbiddenWordsList).catch(() => {});
-    api.getRolePermissions().then(setRolePermissionsList).catch(() => {});
+    api.getAdminStats().then(setStats).catch(() => { });
+    api.getAdminUsers().then(setUsersList).catch(() => { });
+    api.getAdminGroups().then(setGroupsList).catch(() => { });
+    api.getAdminChannels().then(setChannelsList).catch(() => { });
+    api.getAdminMessages().then(setMessagesData).catch(() => { });
+    api.getAdminFiles().then(setFilesData).catch(() => { });
+    api.getAdminLogs().then(setLogs).catch(() => { });
+    api.getAdminPushSubscriptions().then(setPushSubs).catch(() => { });
+    api.getForbiddenWords().then(setForbiddenWordsList).catch(() => { });
+    api.getRolePermissions().then(setRolePermissionsList).catch(() => { });
   };
 
   const fetchDbSettings = async () => {
@@ -847,7 +848,7 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in duration-200">
       <div className="bg-[#121420] border border-white/10 rounded-3xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
-        
+
         {/* HEADER BAR */}
         <div className="px-6 py-4 bg-[#181B28] border-b border-white/5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -905,11 +906,10 @@ export const AdminDashboard: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3.5 py-2.5 rounded-t-2xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-                  isActive
+                className={`px-3.5 py-2.5 rounded-t-2xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${isActive
                     ? "bg-[#121420] text-blue-400 border-t-2 border-blue-500 shadow-md"
                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
@@ -925,7 +925,7 @@ export const AdminDashboard: React.FC = () => {
 
         {/* TAB CONTENTS CONTAINER */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#121420]">
-          
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === "overview" && stats && (
             <div className="space-y-6">
@@ -964,7 +964,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-800/40 border border-slate-800">
                     <span className="text-slate-400 block mb-1">کلمات ممنوعه فعال:</span>
-                    <span className="font-bold text-rose-400 font-mono text-sm">{forbiddenWordsList.filter(w=>w.isEnabled).length} کلمه</span>
+                    <span className="font-bold text-rose-400 font-mono text-sm">{forbiddenWordsList.filter(w => w.isEnabled).length} کلمه</span>
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-800/40 border border-slate-800">
                     <span className="text-slate-400 block mb-1">نقش‌های تعریف‌شده:</span>
@@ -1070,21 +1070,19 @@ export const AdminDashboard: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => handleToggleBan(String(u.id))}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
-                                    u.isBanned
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${u.isBanned
                                       ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
                                       : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                                  }`}
+                                    }`}
                                 >
                                   {u.isBanned ? "مسدودشده (Banned)" : "فعال (Active)"}
                                 </button>
                                 <button
                                   onClick={() => handleToggleMute(String(u.id))}
-                                  className={`p-1 rounded-md text-[10px] border transition-all ${
-                                    u.isMuted
+                                  className={`p-1 rounded-md text-[10px] border transition-all ${u.isMuted
                                       ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
                                       : "bg-slate-800 text-slate-400 border-slate-700"
-                                  }`}
+                                    }`}
                                   title={u.isMuted ? "سکوت فعالم است" : "بی‌صدا کردن"}
                                 >
                                   {u.isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -1310,11 +1308,10 @@ export const AdminDashboard: React.FC = () => {
                           <td className="px-4 py-3">
                             <button
                               onClick={() => handleToggleWordStatus(fw)}
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                                fw.isEnabled
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${fw.isEnabled
                                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                                   : "bg-slate-800 text-slate-500 border-slate-700"
-                              }`}
+                                }`}
                             >
                               {fw.isEnabled ? "فعال (مسدودکننده)" : "غیرفعال"}
                             </button>
@@ -1552,11 +1549,10 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* Notifications & Result Banners */}
                 {smsTestResult && (
-                  <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
-                    smsTestResult.success 
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" 
+                  <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${smsTestResult.success
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}>
+                    }`}>
                     {smsTestResult.success ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                     ) : (
@@ -1570,11 +1566,10 @@ export const AdminDashboard: React.FC = () => {
                 )}
 
                 {smsSaveResult && (
-                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
-                    smsSaveResult.success
+                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${smsSaveResult.success
                       ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}>
+                    }`}>
                     <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
                     <span>{smsSaveResult.message}</span>
                   </div>
@@ -1791,11 +1786,10 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* Status Banners */}
                 {pushSaveResult && (
-                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
-                    pushSaveResult.success
+                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${pushSaveResult.success
                       ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}>
+                    }`}>
                     <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />
                     <span>{pushSaveResult.message}</span>
                   </div>
@@ -1991,7 +1985,7 @@ export const AdminDashboard: React.FC = () => {
                     <p className="text-[11px] text-slate-400 mt-0.5">پس از این مدت، کاربر نیاز به احراز هویت مجدد خواهد داشت.</p>
                   </div>
                   <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
-                    {(localSettings.sessionTimeoutMinutes || 1440) >= 60 
+                    {(localSettings.sessionTimeoutMinutes || 1440) >= 60
                       ? `${Math.floor((localSettings.sessionTimeoutMinutes || 1440) / 60)} ساعت و ${(localSettings.sessionTimeoutMinutes || 1440) % 60} دقیقه`
                       : `${localSettings.sessionTimeoutMinutes || 1440} دقیقه`}
                   </span>
@@ -2017,11 +2011,10 @@ export const AdminDashboard: React.FC = () => {
                         key={preset.value}
                         type="button"
                         onClick={() => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: preset.value }))}
-                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all ${
-                          localSettings.sessionTimeoutMinutes === preset.value
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all ${localSettings.sessionTimeoutMinutes === preset.value
                             ? "bg-blue-600 text-white border-blue-500"
                             : "bg-slate-800/60 text-slate-400 border-white/5 hover:bg-slate-800"
-                        }`}
+                          }`}
                       >
                         {preset.label}
                       </button>
@@ -2104,11 +2097,10 @@ export const AdminDashboard: React.FC = () => {
 
                 {/* Notifications & Result Banners */}
                 {dbTestResult && (
-                  <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${
-                    dbTestResult.success 
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" 
+                  <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${dbTestResult.success
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}>
+                    }`}>
                     {dbTestResult.success ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                     ) : (
@@ -2122,11 +2114,10 @@ export const AdminDashboard: React.FC = () => {
                 )}
 
                 {dbSaveResult && (
-                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
-                    dbSaveResult.success
+                  <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${dbSaveResult.success
                       ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}>
+                    }`}>
                     <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
                     <span>{dbSaveResult.message}</span>
                   </div>
@@ -2438,7 +2429,7 @@ export const AdminDashboard: React.FC = () => {
                   return (
                     <div key={m.userId} className="p-3 rounded-2xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2.5">
-                        <img src={u?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100"} alt="" className="w-7 h-7 rounded-full object-cover" />
+                        <ShowImage src={u?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
                         <div>
                           <p className="font-bold text-slate-200">{u?.displayName || m.userId}</p>
                           <span className="text-[10px] text-slate-400 font-mono">{isOwner ? "مالک روم (Owner)" : m.role}</span>
@@ -2523,7 +2514,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div className="space-y-3 text-xs">
               <div className="flex items-center gap-3 bg-slate-900 border border-white/10 rounded-xl p-2">
-                <img src={editingRoom.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200"} alt="" className="w-10 h-10 rounded-full object-cover" />
+                <ShowImage src={editingRoom.avatarUrl} className="w-10 h-10 rounded-full object-cover" defaultAvatar={NonePhoto} />
                 <label className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-semibold cursor-pointer hover:bg-blue-600/30">
                   تغییر تصویر {editingRoom.type === "group" ? "گروه" : "کانال"}
                   <input
@@ -2584,9 +2575,8 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {testSmsResult && (
-              <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
-                testSmsResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-              }`}>
+              <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${testSmsResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                }`}>
                 {testSmsResult.success ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
                 <span>{testSmsResult.message}</span>
               </div>
@@ -2641,9 +2631,8 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {testPushResult && (
-              <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
-                testPushResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-              }`}>
+              <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${testPushResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                }`}>
                 {testPushResult.success ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
                 <span>{testPushResult.message}</span>
               </div>

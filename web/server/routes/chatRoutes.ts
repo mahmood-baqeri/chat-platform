@@ -20,7 +20,9 @@ import {
   ChatMember,
   Message,
   Attachment,
-  ChatType
+  ChatType,
+  AvatarPhoto,
+  BaseDomain
 } from "../models/types.js";
 import { getUserIdFromReq, formatChatForUser } from "./authRoutes.js";
 import { dbQuery, dbExecute } from "../db/index.js";
@@ -30,6 +32,20 @@ import webPush from "web-push";
 import { getPushConfig } from "../services/pushService.js";
 
 const router = express.Router();
+
+export function enrichMessage(m: Message): Message {
+  if (!m) return m;
+  const senderUser = users.find(u => String(u.id) === String(m.senderId));
+  const senderName = m.senderName || (senderUser
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${m.senderId}`
+    : `کاربر ${m.senderId}`);
+  const senderAvatar = m.senderAvatar || senderUser?.avatarUrl || AvatarPhoto;
+  return {
+    ...m,
+    senderName,
+    senderAvatar
+  };
+}
 
 async function sendPushNotificationForMessage(chatId: string, senderId: string, content: string, mentions: string[] = [], msgType: string = "text") {
   const pushConfig = getPushConfig();
@@ -70,8 +86,8 @@ async function sendPushNotificationForMessage(chatId: string, senderId: string, 
   try {
     webPush.setVapidDetails(
       "mailto:admin@example.com",
-      pushConfig.vapidPublicKey,
-      pushConfig.vapidPrivateKey
+      pushConfig.vapidPublicKey ?? "",
+      pushConfig.vapidPrivateKey ?? ""
     );
   } catch (err) {
     return;
@@ -80,7 +96,7 @@ async function sendPushNotificationForMessage(chatId: string, senderId: string, 
   const payload = JSON.stringify({
     title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
     body: msgType === "text" ? content : `[${msgType === "image" ? "تصویر" : msgType === "video" ? "ویدیو" : msgType === "audio" ? "صوتی" : "فایل"}] ${content}`,
-    icon: sender?.avatarUrl || chat.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150",
+    icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
     url: `/?chatId=${chatId}`,
   });
 
@@ -213,7 +229,7 @@ router.post("/chats", async (req: Request, res: Response) => {
     type: type as ChatType,
     title,
     description: description || "",
-    avatarUrl: avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200&auto=format&fit=crop&q=80",
+    avatarUrl: avatarUrl || AvatarPhoto,
     username,
     isPrivate: type === "direct" ? true : !!isPrivate,
     ownerId: ownerId || roomMembers[0]?.userId || currentUserId || 1,
@@ -221,7 +237,7 @@ router.post("/chats", async (req: Request, res: Response) => {
     memberCount: roomMembers.length,
     unreadCount: 0,
     createdAt: new Date().toISOString(),
-    inviteLink: `https://chat.app/join/${username || Date.now()}`,
+    inviteLink: `${BaseDomain}/join/${username || Date.now()}`,
   };
 
   chats.unshift(newChat);
@@ -349,7 +365,7 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
       const start = Math.max(0, older.length - limit);
       const slice = older.slice(start);
       return res.json({
-        messages: slice,
+        messages: slice.map(enrichMessage),
         hasMore: start > 0,
         hasMoreBefore: start > 0,
         hasMoreAfter: idx < chatMessages.length,
@@ -371,7 +387,7 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
     if (idx !== -1) {
       const slice = chatMessages.slice(idx + 1, idx + 1 + limit);
       return res.json({
-        messages: slice,
+        messages: slice.map(enrichMessage),
         hasMore: (idx + 1 + limit) < chatMessages.length,
         hasMoreAfter: (idx + 1 + limit) < chatMessages.length,
         hasMoreBefore: idx > 0,
@@ -396,7 +412,7 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
       const end = Math.min(chatMessages.length, idx + half + 1);
       const slice = chatMessages.slice(start, end);
       return res.json({
-        messages: slice,
+        messages: slice.map(enrichMessage),
         hasMoreBefore: start > 0,
         hasMoreAfter: end < chatMessages.length,
         firstUnreadMessageId: aroundId,
@@ -425,7 +441,7 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
       const end = Math.min(chatMessages.length, idx + half + 1);
       const slice = chatMessages.slice(start, end);
       return res.json({
-        messages: slice,
+        messages: slice.map(enrichMessage),
         hasMoreBefore: start > 0,
         hasMoreAfter: end < chatMessages.length,
         firstUnreadMessageId: unreadMsgId,
@@ -437,7 +453,7 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const start = Math.max(0, chatMessages.length - limit);
   const slice = chatMessages.slice(start);
   return res.json({
-    messages: slice,
+    messages: slice.map(enrichMessage),
     hasMore: start > 0,
     hasMoreBefore: start > 0,
     hasMoreAfter: false,
@@ -504,10 +520,18 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
     url: saveBase64ToFile(att.url, att.name)
   }));
 
+  const senderUser = users.find(u => String(u.id) === String(actualSenderId));
+  const senderName = senderUser
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${actualSenderId}`
+    : `کاربر ${actualSenderId}`;
+  const senderAvatar = senderUser?.avatarUrl || AvatarPhoto;
+
   const newMsg: Message = {
     id: finalId,
     chatId,
     senderId: actualSenderId,
+    senderName,
+    senderAvatar,
     type: type || "text",
     content: content || "",
     attachments: processedAttachments,
@@ -541,9 +565,10 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
     ]
   );
 
-  sendRoomWSEvent(chatId, "message:new", newMsg);
+  const enriched = enrichMessage(newMsg);
+  sendRoomWSEvent(chatId, "message:new", enriched);
   sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type);
-  res.json(newMsg);
+  res.json(enriched);
 });
 
 // Edit Message

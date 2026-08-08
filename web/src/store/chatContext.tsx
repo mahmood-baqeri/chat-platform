@@ -680,6 +680,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [activeChat, currentUser, playNotificationSound]);
 
   const selectChat = (chatId: string) => {
+    if (activeChat && (activeChat.id === chatId || activeChat.username === chatId)) {
+      setMobileView("chat");
+      return;
+    }
     const chat = chats.find((c) => c.id === chatId || c.username === chatId);
     if (chat) {
       if (chat.id !== activeChat?.id) {
@@ -831,6 +835,34 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const markMessagesAsRead = useCallback(async (messageIds: string[]) => {
     if (!activeChat || !currentUser || messageIds.length === 0) return;
+
+    // Optimistically mark messages as seen and update unread count locally
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (messageIds.includes(String(m.id))) {
+          const seenBy = m.seenBy || [];
+          if (!seenBy.some((s) => String(s.userId) === String(currentUser.id))) {
+            return {
+              ...m,
+              status: "seen",
+              seenBy: [...seenBy, { userId: currentUser.id, userDisplayName: currentUser.displayName, userAvatarUrl: currentUser.avatarUrl, seenAt: new Date().toISOString() }],
+            };
+          }
+        }
+        return m;
+      })
+    );
+
+    setChats((prev) =>
+      prev.map((c) => {
+        if (c.id === activeChat.id) {
+          const newUnread = Math.max(0, (c.unreadCount || 0) - messageIds.length);
+          return { ...c, unreadCount: newUnread };
+        }
+        return c;
+      })
+    );
+
     try {
       const res = await api.markMessagesAsRead(activeChat.id, currentUser.id, messageIds);
       if (res.unreadCount !== undefined) {
@@ -838,21 +870,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           prev.map((c) => (c.id === activeChat.id ? { ...c, unreadCount: res.unreadCount } : c))
         );
       }
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (messageIds.includes(String(m.id))) {
-            const seenBy = m.seenBy || [];
-            if (!seenBy.some((s) => String(s.userId) === String(currentUser.id))) {
-              return {
-                ...m,
-                status: "seen",
-                seenBy: [...seenBy, { userId: currentUser.id, userDisplayName: currentUser.displayName, userAvatarUrl: currentUser.avatarUrl, seenAt: new Date().toISOString() }],
-              };
-            }
-          }
-          return m;
-        })
-      );
     } catch (e) {
       console.error("Error marking messages as read:", e);
     }

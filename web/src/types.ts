@@ -133,6 +133,7 @@ export interface Message {
   chatId: string;
   senderId: number | string;
   senderName?: string;
+  senderAvatar?: string;
   type: MessageType;
   content: string;
   attachments?: Attachment[];
@@ -205,3 +206,10 @@ export interface WebSocketEvent {
   event: string;
   data: any;
 }
+
+
+export const BaseDomain = "";
+export const AvatarPhoto = "/uploads/000_avatar.png?w=150";
+export const FaviconPhoto = "/uploads/000_favicon.png";
+export const LogoPhoto = "/uploads/000_logo.png";
+export const NonePhoto = "/uploads/000_none.png?w=150";

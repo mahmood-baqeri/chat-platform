@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useChat } from "../../store/chatContext";
-import { ChatType } from "../../types";
+import { AvatarPhoto, ChatType } from "../../types";
 import { ContactsTab } from "../chat/ContactsTab";
 import {
   MessageSquare,
@@ -16,6 +16,7 @@ import {
   X,
   UserCheck,
 } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
 
 export const Sidebar: React.FC = () => {
   const {
@@ -118,13 +119,13 @@ export const Sidebar: React.FC = () => {
               </span>
             )}
           </h2>
-          <button
+          {/* <button
             onClick={() => setShowNewChatModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium shadow-md shadow-blue-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>گفت‌وگوی جدید</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Telegram-style Search Bar (above all tabs) */}
@@ -252,9 +253,9 @@ export const Sidebar: React.FC = () => {
                 <MessageSquare className="w-6 h-6" />
               </div>
               <p className="text-xs font-medium text-[var(--text-primary)]">گفت‌وگویی یافت نشد</p>
-              <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+              {/* <p className="text-[11px] text-[var(--text-secondary)] mt-1">
                 می‌توانید از دکمه «گفت‌وگوی جدید» یک گفتگو یا گروه بسازید.
-              </p>
+              </p> */}
             </div>
           ) : (
             filteredChats.map((chat) => {
@@ -271,11 +272,7 @@ export const Sidebar: React.FC = () => {
                 >
                   {/* Avatar with type indicator */}
                   <div className="relative shrink-0">
-                    <img
-                      src={chat.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150"}
-                      alt={chat.title}
-                      className="w-12 h-12 rounded-full object-cover ring-1 ring-[var(--border)]"
-                    />
+                    <ShowImage src={chat.avatarUrl} className="w-12 h-12 rounded-full object-cover ring-1 ring-[var(--border)]" />
                     <span className="absolute -bottom-1 -left-1 bg-[var(--sidebar)] rounded-lg p-0.5 border border-[var(--border)]">
                       {getChatTypeIcon(chat.type)}
                     </span>

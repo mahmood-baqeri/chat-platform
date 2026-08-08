@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Message, MessageType } from "../../types";
+import { Message, MessageType, NonePhoto } from "../../types";
 import { useChat } from "../../store/chatContext";
 import { AudioPlayer } from "./AudioPlayer";
 import { ConfirmDeleteModal } from "../modals/ConfirmDeleteModal";
@@ -24,13 +24,17 @@ import {
   X,
   UserCheck
 } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
+import { api } from "@/src/services/api";
 
 interface Props {
   message: Message;
+  isFirstInGroup?: boolean;
 }
 
-export const MessageItem: React.FC<Props> = ({ message }) => {
+export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true }) => {
   const {
+    activeChat,
     currentUser,
     systemSettings,
     toggleReaction,
@@ -45,6 +49,9 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
     activeOpenMenuId,
     setActiveOpenMenuId,
     jumpToMessage,
+    selectChat,
+    chats,
+    refreshChats
   } = useChat();
 
   const [showSeenModal, setShowSeenModal] = useState(false);
@@ -162,11 +169,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
                 onClick={() => setActiveMediaUrl({ url: att.url, type: "image", name: att.name })}
                 className="relative rounded-2xl overflow-hidden cursor-pointer group max-w-sm border border-slate-700/50 shadow-md"
               >
-                <img
-                  src={att.url}
-                  alt={att.name}
-                  className="w-full max-h-64 object-cover group-hover:scale-105 transition-all duration-300"
-                />
+                <ShowImage src={att.url} defaultAvatar={NonePhoto} className="w-full max-h-64 object-cover group-hover:scale-105 transition-all duration-300" />
                 <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <span className="px-3 py-1 bg-slate-900/80 text-white text-xs rounded-xl backdrop-blur-sm">
                     مشاهده عکس
@@ -215,15 +218,52 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
   const seenCount = message.seenBy?.length || 0;
   const isUnread = !isMe && !!currentUser && (!message.seenBy || !message.seenBy.some((s) => String(s.userId) === String(currentUser.id)));
 
+
+  const handleSelectContact = async (contactId: string | number, contactName: string | undefined, contactAvatar: string | undefined) => {
+    if (!currentUser) return;
+    if (!contactId) return;
+
+    try {
+      // 1. Check if direct chat already exists in active chats
+      let targetChat = chats.find(
+        (chat) =>
+          chat.type === "direct" &&
+          chat.members?.some((m) => String(m.userId) === String(contactId))
+      );
+
+
+      // 3. Create direct chat via backend if none exists
+      if (!targetChat) {
+        const newChatData = await api.createChat({
+          type: "direct",
+          title: contactName,
+          avatarUrl: contactAvatar,
+          members: [
+            { userId: currentUser.id, role: "owner", joinedAt: new Date().toISOString(), isMuted: false },
+            { userId: contactId, role: "user", joinedAt: new Date().toISOString(), isMuted: false },
+          ],
+        });
+
+        await refreshChats();
+        targetChat = newChatData;
+      }
+
+      selectChat(targetChat.id);
+    } catch (err: any) {
+      alert(err.message || "خطا در برقراری ارتباط با مخاطب");
+    } finally {
+    }
+  };
+
+
   return (
     <div
       ref={containerRef}
       id={`message-${message.id}`}
       data-message-id={message.id}
       data-unread={isUnread ? "true" : "false"}
-      className={`message-item flex flex-col my-1.5 group relative transition-all duration-300 p-1 rounded-2xl ${
-        isHighlighted ? "ring-2 ring-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-[1.01]" : ""
-      } ${isMe ? "items-end" : "items-start"}`}
+      className={`message-item flex flex-col mb-1 group relative transition-all duration-300 p-1 rounded-2xl ${isHighlighted ? "ring-2 ring-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-[1.01]" : ""
+        } ${isMe ? "items-start" : "items-end"}`}
     >
       {/* Pinned Tag */}
       {message.isPinned && (
@@ -231,6 +271,16 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
           <Pin className="w-3 h-3" />
           <span>پین‌شده</span>
         </span>
+      )}
+
+      {/* Group Sender Avatar & Name Above Message (Shown only once for consecutive messages from same sender) */}
+      {activeChat?.type === "group" && !isMe && isFirstInGroup && (
+        <div className="flex items-center gap-1.5 mb-1 px-1 text-xs font-semibold text-blue-500 dark:text-blue-400 flex-row-reverse cursor-pointer" onClick={() => handleSelectContact(message.senderId, message.senderName, message.senderAvatar)}>
+          <ShowImage src={message.senderAvatar} className="w-10 h-10 rounded-full object-cover shrink-0 border border-[var(--border)] shadow-2xs" />
+          <span className="text-[11px] font-bold">
+            {message.senderName || "کاربر"}
+          </span>
+        </div>
       )}
 
       {/* Main Message Container */}
@@ -253,7 +303,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
 
         {/* Reaction Popover */}
         {isReactionOpen && (
-          <div className={`absolute -top-10 z-30 bg-[var(--sidebar)] border border-[var(--border)] shadow-xl rounded-2xl p-1.5 flex items-center gap-1 backdrop-blur-md ${isMe ? "left-0" : "right-0"}`}>
+          <div className={`absolute -top-10 z-30 bg-[var(--sidebar)] border border-[var(--border)] shadow-xl rounded-2xl p-1.5 flex items-center gap-1 backdrop-blur-md ${isMe ? "right-0" : "left-0"}`}>
             {quickReactions.map((emoji) => (
               <button
                 key={emoji}
@@ -271,7 +321,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
 
         {/* Context Menu Dropdown */}
         {isMenuOpen && (
-          <div className={`absolute top-8 z-30 bg-[var(--sidebar)] border border-[var(--border)] shadow-2xl rounded-2xl py-1.5 w-40 text-xs text-[var(--text-primary)] font-medium ${isMe ? "left-0" : "right-0"}`}>
+          <div className={`absolute top-8 z-30 bg-[var(--sidebar)] border border-[var(--border)] shadow-2xl rounded-2xl py-1.5 w-40 text-xs text-[var(--text-primary)] font-medium ${isMe ? "right-0" : "left-0"}`}>
             {systemSettings.replyEnabled && (
               <button
                 onClick={() => {
@@ -341,21 +391,19 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
 
         {/* Bubble Box */}
         <div
-          className={`rounded-2xl p-3.5 shadow-sm text-right text-xs leading-relaxed transition-all relative ${
-            isMe
-              ? "bg-[#2563EB] text-white rounded-bl-xs shadow-[0_2px_5px_rgba(0,0,0,0.2)]"
-              : "bg-[var(--sidebar)] text-[var(--text-primary)] rounded-br-xs border border-[var(--border)] shadow-[0_2px_5px_rgba(0,0,0,0.1)]"
-          }`}
+          className={`rounded-2xl p-3.5 shadow-sm text-right text-xs leading-relaxed transition-all relative ${isMe
+            ? "bg-[#2563EB] text-white rounded-br-xs shadow-[0_2px_5px_rgba(0,0,0,0.2)]"
+            : "bg-[var(--sidebar)] text-[var(--text-primary)] rounded-bl-xs border border-[var(--border)] shadow-[0_2px_5px_rgba(0,0,0,0.1)]"
+            }`}
         >
           {/* Reply Quote Banner */}
           {message.replyToMessage && (
             <div
               onClick={() => jumpToMessage(String(message.replyToMessageId || message.replyToMessage!.id))}
-              className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${
-                isMe
-                  ? "bg-black/20 border-white/60 text-blue-100"
-                  : "bg-black/20 border-blue-400 text-slate-300"
-              }`}
+              className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${isMe
+                ? "bg-black/20 border-white/60 text-blue-100"
+                : "bg-black/20 border-blue-400 text-slate-300"
+                }`}
             >
               <p className="font-bold text-[10px] text-blue-300 mb-0.5">
                 {message.replyToMessage.senderName}
@@ -381,7 +429,7 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
             !message.content.startsWith("data:audio/") &&
             !message.content.startsWith("ارسال فایل:") &&
             (!message.attachments || message.attachments.length === 0 || message.content !== message.attachments[0]?.name) && (
-              <div className="whitespace-pre-wrap break-words mt-2 text-[var(--text-primary)] font-normal border-t border-white/10 pt-2 text-xs leading-relaxed">
+              <div className="whitespace-pre-wrap break-words text-[var(--text-primary)] font-normal border-white/10 text-xs leading-relaxed">
                 {message.content}
               </div>
             )}
@@ -396,9 +444,8 @@ export const MessageItem: React.FC<Props> = ({ message }) => {
                 onClick={() => {
                   if (seenCount > 0) setShowSeenModal(true);
                 }}
-                className={`inline-flex items-center gap-1 rounded px-1 transition-colors ${
-                  seenCount > 0 ? "hover:bg-white/20 cursor-pointer" : "cursor-default"
-                }`}
+                className={`inline-flex items-center gap-1 rounded px-1 transition-colors ${seenCount > 0 ? "hover:bg-white/20 cursor-pointer" : "cursor-default"
+                  }`}
                 title={seenCount > 0 ? `مشاهده لیست خوانندگان (${seenCount} نفر)` : undefined}
               >
                 {message.status === "seen" ? (

@@ -6,7 +6,7 @@ import {
   messages,
   messageSeens
 } from "../store/dataStore.js";
-import { ContactRecord } from "../models/types.js";
+import { AvatarPhoto, ContactRecord } from "../models/types.js";
 import { dbExecute } from "../db/index.js";
 
 const router = express.Router();
@@ -38,7 +38,7 @@ router.get("/contacts", async (req: Request, res: Response) => {
       contactUserId: u.id,
       customName: customContact?.customName || u.displayName || u.username || u.phone || "کاربر",
       displayName: u.displayName || customContact?.customName || u.username || u.phone || "کاربر",
-      avatarUrl: u.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+      avatarUrl: u.avatarUrl || AvatarPhoto,
       status: u.status || "offline",
       lastSeen: u.lastSeen || "چند لحظه پیش",
       lastMessage: directChat?.lastMessage ? {

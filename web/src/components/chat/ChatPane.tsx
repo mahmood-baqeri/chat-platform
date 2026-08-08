@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, UIEvent } from "react";
+import React, { useRef, useEffect, useState, useMemo, UIEvent } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
 import { MessageItem } from "./MessageItem";
@@ -27,6 +27,7 @@ import {
   Upload,
   Lock
 } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
 
 export const ChatPane: React.FC = () => {
   const {
@@ -49,7 +50,7 @@ export const ChatPane: React.FC = () => {
     firstUnreadMessageId,
     setShowSearchModal,
     sendMessage,
-    markMessagesAsRead,
+    markMessagesAsRead
   } = useChat();
 
   const [showMobileBottomSheet, setShowMobileBottomSheet] = useState(false);
@@ -202,21 +203,23 @@ export const ChatPane: React.FC = () => {
               pendingReadIdsRef.current.add(msgId);
               el.setAttribute("data-unread", "false"); // avoid duplicate queueing
 
-              if (readTimeoutRef.current) clearTimeout(readTimeoutRef.current);
-              readTimeoutRef.current = setTimeout(() => {
-                const ids = Array.from(pendingReadIdsRef.current);
-                if (ids.length > 0) {
-                  markMessagesAsRead(ids);
-                  pendingReadIdsRef.current.clear();
-                }
-              }, 200);
+              if (!readTimeoutRef.current) {
+                readTimeoutRef.current = setTimeout(() => {
+                  const ids = Array.from(pendingReadIdsRef.current);
+                  if (ids.length > 0) {
+                    markMessagesAsRead(ids);
+                    pendingReadIdsRef.current.clear();
+                  }
+                  readTimeoutRef.current = null;
+                }, 100);
+              }
             }
           }
         });
       },
       {
         root: scrollContainerRef.current,
-        threshold: 0.5,
+        threshold: 0.2,
       }
     );
 
@@ -288,7 +291,20 @@ export const ChatPane: React.FC = () => {
   const latestPinned = pinnedMessages.length > 0 ? pinnedMessages[pinnedMessages.length - 1] : null;
   const activeTypingList = typingUsers[activeChat.id] || [];
   const actualMemberCount = activeChat.members ? activeChat.members.length : (activeChat.memberCount || 0);
-  const unreadCount = activeChat.unreadCount || 0;
+
+  // Filter messages for active chat strictly
+  const chatMessages = useMemo(() => {
+    return messages.filter((m) => m.chatId === activeChat.id);
+  }, [messages, activeChat.id]);
+
+  const unreadCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return chatMessages.filter(
+      (m) =>
+        String(m.senderId) !== String(currentUser.id) &&
+        (!m.seenBy || !m.seenBy.some((s) => String(s.userId) === String(currentUser.id)))
+    ).length;
+  }, [chatMessages, currentUser]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -329,21 +345,26 @@ export const ChatPane: React.FC = () => {
     }
   };
 
-  // Filter messages for active chat strictly
-  const chatMessages = messages.filter((m) => m.chatId === activeChat.id);
+  // Build array of items with date header markers and sender group flags
+  const groupedItems = useMemo(() => {
+    const items: { type: "date" | "message"; label?: string; message?: Message; isFirstInGroup?: boolean }[] = [];
+    let currentDateLabel = "";
+    let lastSenderIdInDateGroup: string | number | null = null;
 
-  // Build array of items with date header markers
-  const groupedItems: { type: "date" | "message"; label?: string; message?: Message }[] = [];
-  let currentDateLabel = "";
+    chatMessages.forEach((msg) => {
+      const label = formatDateLabel(msg.createdAt);
+      if (label && label !== currentDateLabel) {
+        currentDateLabel = label;
+        lastSenderIdInDateGroup = null;
+        items.push({ type: "date", label });
+      }
+      const isFirstInGroup = String(msg.senderId) !== String(lastSenderIdInDateGroup);
+      lastSenderIdInDateGroup = msg.senderId;
+      items.push({ type: "message", message: msg, isFirstInGroup });
+    });
 
-  chatMessages.forEach((msg) => {
-    const label = formatDateLabel(msg.createdAt);
-    if (label && label !== currentDateLabel) {
-      currentDateLabel = label;
-      groupedItems.push({ type: "date", label });
-    }
-    groupedItems.push({ type: "message", message: msg });
-  });
+    return items;
+  }, [chatMessages]);
 
   return (
     <main
@@ -380,11 +401,7 @@ export const ChatPane: React.FC = () => {
             className="flex items-center gap-2.5 cursor-pointer group min-w-0 flex-1"
           >
             <div className="relative shrink-0">
-              <img
-                src={activeChat.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150"}
-                alt={activeChat.title}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500 transition-all"
-              />
+              <ShowImage src={activeChat.avatarUrl} className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500 transition-all" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5" />
             </div>
 
@@ -407,8 +424,8 @@ export const ChatPane: React.FC = () => {
                     {activeChat.type === "channel"
                       ? "کانال رسمی"
                       : activeChat.type === "group"
-                      ? `${actualMemberCount} عضو`
-                      : "آنلاین"}
+                        ? `${actualMemberCount} عضو`
+                        : "آنلاین"}
                   </span>
                 )}
               </p>
@@ -476,17 +493,6 @@ export const ChatPane: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Unread Count Banner */}
-      {unreadCount > 0 && (
-        <div
-          onClick={scrollToFirstUnread}
-          className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg border border-blue-400/30 backdrop-blur-md cursor-pointer flex items-center gap-1.5 transition-all animate-in slide-in-from-top-2 duration-200 active:scale-95"
-        >
-          <ChevronDown className="w-4 h-4 animate-bounce" />
-          <span>{unreadCount} پیام خوانده‌نشده</span>
-        </div>
-      )}
-
       {/* Floating Scroll to Bottom Button */}
       {showScrollBottomButton && (
         <button
@@ -540,15 +546,17 @@ export const ChatPane: React.FC = () => {
             groupedItems.map((item, index) => {
               if (item.type === "date") {
                 return (
-                  <div key={`date-${item.label}-${index}`} className="flex items-center justify-center my-4 sticky top-2 z-10">
-                    <span className="bg-[var(--sidebar)] text-[var(--text-secondary)] border border-[var(--border)] px-3 py-1 rounded-full text-[10px] font-bold shadow-md backdrop-blur-md flex items-center gap-1.5">
-                      <Calendar className="w-3 h-3 text-blue-500" />
+                  <div key={`date-${item.label}-${index}`} className="flex items-center justify-center my-4 sticky top-2 z-10 pointer-events-none">
+                    <span className="bg-[var(--sidebar)] text-[var(--text-secondary)] border border-[var(--border)] px-3.5 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 min-w-[110px] justify-center text-center opacity-95">
+                      <Calendar className="w-3 h-3 text-blue-500 shrink-0" />
                       <span>{item.label}</span>
                     </span>
                   </div>
                 );
               }
-              return <MessageItem key={item.message!.id} message={item.message!} />;
+              return (
+                <MessageItem key={item.message!.id} message={item.message!} isFirstInGroup={item.isFirstInGroup ?? true} />
+              );
             })
           )}
           {/* Infinite Scroll Bottom Loading Indicator & Manual Button */}
@@ -615,17 +623,10 @@ export const ChatPane: React.FC = () => {
           <div className="bg-[var(--sidebar)] border-t border-[var(--border)] rounded-t-3xl p-5 w-full shadow-2xl text-[var(--text-primary)] space-y-3 animate-in slide-in-from-bottom duration-250">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
-                <img
-                  src={activeChat.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150"}
-                  alt={activeChat.title}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                <ShowImage src={activeChat.avatarUrl} className="w-8 h-8 rounded-full object-cover" />
                 <span className="font-bold text-sm truncate">{activeChat.title}</span>
               </div>
-              <button
-                onClick={() => setShowMobileBottomSheet(false)}
-                className="p-1 rounded-xl bg-[var(--list)] text-[var(--text-secondary)]"
-              >
+              <button onClick={() => setShowMobileBottomSheet(false)} className="p-1 rounded-xl bg-[var(--list)] text-[var(--text-secondary)]">
                 <X className="w-5 h-5" />
               </button>
             </div>

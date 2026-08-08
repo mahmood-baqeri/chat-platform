@@ -3,6 +3,7 @@ import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
 import { Search, User, MessageSquare, Phone, Clock, Loader2, Sparkles, UserCheck } from "lucide-react";
 import { formatTime, formatDateGroupHeader } from "../../utils/dateUtils";
+import { ShowImage } from "@/src/utils/showImage";
 
 export interface EnrichedContact {
   id: string;
@@ -112,7 +113,7 @@ export const ContactsTab: React.FC = () => {
         {isLoading ? (
           <div className="py-12 text-center text-xs text-[var(--text-secondary)] flex flex-col items-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-            <span>در حال بارگذاری لیست مخاطبین از پایگاه‌داده...</span>
+            <span>در حال بارگذاری لیست مخاطبین ...</span>
           </div>
         ) : filteredContacts.length === 0 ? (
           <div className="py-16 text-center text-[var(--text-secondary)] text-xs px-4">
@@ -131,11 +132,7 @@ export const ContactsTab: React.FC = () => {
             >
               {/* Avatar with Status Badge */}
               <div className="relative shrink-0">
-                <img
-                  src={contact.avatarUrl}
-                  alt={contact.displayName}
-                  className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/20 group-hover:ring-emerald-500 transition-all"
-                />
+                <ShowImage src={contact.avatarUrl} className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/20 group-hover:ring-emerald-500 transition-all" />
                 <span
                   className={`w-3 h-3 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5 ${
                     contact.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-500"

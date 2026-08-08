@@ -16,6 +16,8 @@ import {
   Check,
   Sparkles
 } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
+import { BaseDomain } from "@/src/types";
 
 export const GroupInfoDrawer: React.FC = () => {
   const { showGroupDrawer, setShowGroupDrawer, activeChat, currentUser, systemSettings } = useChat();
@@ -52,11 +54,7 @@ export const GroupInfoDrawer: React.FC = () => {
 
           {/* Profile Card */}
           <div className="text-center mb-6">
-            <img
-              src={activeChat.avatarUrl || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200"}
-              alt={activeChat.title}
-              className="w-20 h-20 mx-auto rounded-full object-cover ring-4 ring-blue-500/20 mb-3 shadow-xl"
-            />
+            <ShowImage src={activeChat.avatarUrl } className="w-20 h-20 mx-auto rounded-full object-cover ring-4 ring-blue-500/20 mb-3 shadow-xl" />
             <h2 className="font-bold text-base text-slate-100">{activeChat.title}</h2>
             {activeChat.username && (
               <p className="text-xs text-blue-400 font-mono mt-0.5">@{activeChat.username}</p>
@@ -86,7 +84,7 @@ export const GroupInfoDrawer: React.FC = () => {
               {showQr ? (
                 <div className="bg-white p-3 rounded-xl text-center my-2">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(activeChat.inviteLink || "https://chat.app")}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(activeChat.inviteLink || BaseDomain)}`}
                     alt="QR Code"
                     className="w-32 h-32 mx-auto"
                   />

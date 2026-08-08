@@ -17,7 +17,9 @@ import {
   Chat,
   UserRole,
   ForbiddenWord,
-  WordCategory
+  WordCategory,
+  AvatarPhoto,
+  BaseDomain
 } from "../models/types.js";
 import { dbExecute, dbQuery } from "../db/index.js";
 import { broadcastWSEvent, wsClients } from "../websocket/wsServer.js";
@@ -112,7 +114,7 @@ router.post("/admin/users", async (req: Request, res: Response) => {
     firstName: firstName || "کاربر",
     lastName: lastName || "جدید",
     displayName: displayName || `${firstName || 'کاربر'} ${lastName || ''}`.trim(),
-    avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+    avatarUrl: AvatarPhoto,
     bio: bio || "",
     status: "offline",
     lastSeen: "لحظاتی پیش",
@@ -358,7 +360,7 @@ router.get("/admin/groups", (req: Request, res: Response) => {
 
 router.post("/admin/groups", async (req: Request, res: Response) => {
   const { title, description, isPrivate, ownerId, avatarUrl } = req.body;
-  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + Date.now()) : "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200&auto=format&fit=crop&q=80";
+  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + Date.now()) : AvatarPhoto;
 
   const numOwnerId = typeof ownerId === "number" ? ownerId : (parseInt(String(ownerId).replace(/\D/g, ""), 10) || 1);
   const newGroup: Chat = {
@@ -376,7 +378,7 @@ router.post("/admin/groups", async (req: Request, res: Response) => {
     memberCount: 1,
     unreadCount: 0,
     createdAt: new Date().toISOString(),
-    inviteLink: `https://chat.app/join/group_${Date.now()}`
+    inviteLink: `${BaseDomain}/join/group_${Date.now()}`
   };
 
   chats.unshift(newGroup);
@@ -407,7 +409,7 @@ router.put("/admin/groups/:groupId", async (req: Request, res: Response) => {
   if (isArchived !== undefined) group.isArchived = isArchived;
   if (inviteLink) group.inviteLink = inviteLink;
   if (avatarUrl !== undefined) {
-    group.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + group.id) : "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=200";
+    group.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + group.id) : AvatarPhoto;
   }
 
   await dbExecute(
@@ -436,7 +438,7 @@ router.get("/admin/channels", (req: Request, res: Response) => {
 
 router.post("/admin/channels", async (req: Request, res: Response) => {
   const { title, description, username, isPrivate, ownerId, avatarUrl } = req.body;
-  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + Date.now()) : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80";
+  const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + Date.now()) : AvatarPhoto;
 
   const numOwnerId = typeof ownerId === "number" ? ownerId : (parseInt(String(ownerId).replace(/\D/g, ""), 10) || 1);
   const newChannel: Chat = {
@@ -454,7 +456,7 @@ router.post("/admin/channels", async (req: Request, res: Response) => {
     memberCount: 1,
     unreadCount: 0,
     createdAt: new Date().toISOString(),
-    inviteLink: `https://chat.app/join/${username || Date.now()}`
+    inviteLink: `${BaseDomain}/join/${username || Date.now()}`
   };
 
   chats.unshift(newChannel);
@@ -483,7 +485,7 @@ router.put("/admin/channels/:channelId", async (req: Request, res: Response) => 
   if (username) channel.username = username;
   if (isPrivate !== undefined) channel.isPrivate = isPrivate;
   if (avatarUrl !== undefined) {
-    channel.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + channel.id) : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200";
+    channel.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + channel.id) : AvatarPhoto;
   }
 
   await dbExecute(

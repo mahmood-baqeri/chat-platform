@@ -60,7 +60,9 @@ export async function requestAllPermissionsAfterLogin(userId?: string) {
         if (reg) {
           let sub = await reg.pushManager.getSubscription();
           if (!sub) {
-            const settingsRes = await fetch("/api/admin/push-settings").then((r) => r.json()).catch(() => null);
+            const settingsRes = await fetch("/api/push-public-key")
+              .then((r) => r.json())
+              .catch(() => fetch("/api/admin/push-settings").then((r) => r.json()).catch(() => null));
             if (settingsRes && settingsRes.vapidPublicKey) {
               const convertedKey = urlBase64ToUint8Array(settingsRes.vapidPublicKey);
               sub = await reg.pushManager.subscribe({

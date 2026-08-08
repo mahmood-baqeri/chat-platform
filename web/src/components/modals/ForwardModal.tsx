@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useChat } from "../../store/chatContext";
-import { Message, Chat } from "../../types";
+import { Message, Chat, AvatarPhoto } from "../../types";
 import { X, Search, Share2, Users, Radio, UserCheck, Check, Send } from "lucide-react";
+import { ShowImage } from "@/src/utils/showImage";
 
 interface ForwardModalProps {
   message: Message | null;
@@ -10,15 +11,18 @@ interface ForwardModalProps {
 }
 
 export const ForwardModal: React.FC<ForwardModalProps> = ({ message, isOpen, onClose }) => {
-  const { chats, currentUser, sendMessage, selectChat } = useChat();
+  const { chats, activeChat, currentUser, sendMessage, selectChat } = useChat();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
   if (!isOpen || !message) return null;
 
-  // Filter chats where user is allowed to send message
+  // Filter chats where user is allowed to send message (excluding current active chat room)
   const eligibleChats = chats.filter((chat) => {
+    if (activeChat && (chat.id === activeChat.id || chat.id === `chat-${activeChat.id}` || activeChat.id === `chat-${chat.id}`)) {
+      return false;
+    }
     if (chat.type === "channel") {
       const isOwnerOrAdmin =
         String(chat.ownerId) === String(currentUser?.id) ||
@@ -107,19 +111,14 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ message, isOpen, onC
                 <div
                   key={chat.id}
                   onClick={() => setSelectedChatId(chat.id)}
-                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
+                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${isSelected
                       ? "bg-emerald-500/20 border-emerald-500/50 text-white"
                       : "bg-white/5 border-white/5 hover:bg-white/10 text-slate-200"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative w-9 h-9 rounded-full overflow-hidden bg-slate-800 shrink-0">
-                      <img
-                        src={chat.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-                        alt={chat.title}
-                        className="w-full h-full object-cover"
-                      />
+                      <ShowImage src={chat.avatarUrl} className="w-full h-full object-cover" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-xs text-white flex items-center gap-1.5">
@@ -134,9 +133,8 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({ message, isOpen, onC
                   </div>
 
                   <div
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                      isSelected ? "border-emerald-400 bg-emerald-500 text-black" : "border-slate-600"
-                    }`}
+                    className={`w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? "border-emerald-400 bg-emerald-500 text-black" : "border-slate-600"
+                      }`}
                   >
                     {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
