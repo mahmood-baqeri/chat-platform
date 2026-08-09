@@ -10,7 +10,8 @@ class ChatListView extends StatefulWidget {
   State<ChatListView> createState() => _ChatListViewState();
 }
 
-class _ChatListViewState extends State<ChatListView> with SingleTickerProviderStateMixin {
+class _ChatListViewState extends State<ChatListView>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -21,6 +22,15 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _titleController.dispose();
+    _usernameController.dispose();
+    _descController.dispose();
+    super.dispose();
   }
 
   void _showCreateChatModal(BuildContext context, String defaultType) {
@@ -38,7 +48,7 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return StatefulWidget(
+        return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
@@ -56,8 +66,11 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          selectedType == 'group' ? "ایجاد گروه جدید" : "ایجاد کانال جدید",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          selectedType == 'group'
+                              ? "ایجاد گروه جدید"
+                              : "ایجاد کانال جدید",
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close),
@@ -69,8 +82,10 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                     TextField(
                       controller: _titleController,
                       decoration: InputDecoration(
-                        labelText: selectedType == 'group' ? "نام گروه" : "نام کانال",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        labelText:
+                            selectedType == 'group' ? "نام گروه" : "نام کانال",
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -79,7 +94,8 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                       decoration: InputDecoration(
                         labelText: "شناسه کاربری (آیدی)",
                         prefixText: "@",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -88,7 +104,8 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                       maxLines: 2,
                       decoration: InputDecoration(
                         labelText: "توضیحات",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -106,8 +123,10 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () {
                           if (_titleController.text.trim().isNotEmpty) {
@@ -123,7 +142,9 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                             Navigator.pop(context);
                           }
                         },
-                        child: const Text("ایجاد", style: TextStyle(color: Colors.white, fontSize: 16)),
+                        child: const Text("ایجاد",
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 16)),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -141,7 +162,8 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("پیام‌رسان هوشمند", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("پیام‌رسان هوشمند",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.push_pin_outlined, color: Colors.amber),
@@ -231,10 +253,38 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
               controller: _tabController,
               children: [
                 _buildChatList(state.chats),
-                _buildChatList(state.chats.where((c) => c.type == 'direct').toList()),
-                _buildChatList(state.chats.where((c) => c.type == 'group').toList()),
-                _buildChatList(state.chats.where((c) => c.type == 'channel').toList()),
+                _buildChatList(
+                    state.chats.where((c) => c.type == 'direct').toList()),
+                _buildChatList(
+                    state.chats.where((c) => c.type == 'group').toList()),
+                _buildChatList(
+                    state.chats.where((c) => c.type == 'channel').toList()),
               ],
+            );
+          }
+
+          if (state is ChatErrorState) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline,
+                      size: 64, color: Colors.red.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.message,
+                    style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      BlocProvider.of<ChatBloc>(context).add(LoadChatsEvent());
+                    },
+                    child: const Text("تلاش مجدد"),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -247,14 +297,16 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
   Widget _buildChatList(List<ChatModel> chats) {
     if (chats.isEmpty) {
       return const Center(
-        child: Text("گفتگویی در این بخش وجود ندارد", style: TextStyle(color: Colors.grey)),
+        child: Text("گفتگویی در این بخش وجود ندارد",
+            style: TextStyle(color: Colors.grey)),
       );
     }
 
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: chats.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, indent: 70),
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, indent: 70),
       itemBuilder: (context, index) {
         final chat = chats[index];
         IconData typeIcon = Icons.person;
@@ -269,7 +321,8 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
         }
 
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: Stack(
             children: [
               CircleAvatar(
@@ -279,6 +332,7 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                       ? chat.avatarUrl
                       : 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150',
                 ),
+                onBackgroundImageError: (_, __) {},
               ),
               Positioned(
                 bottom: 0,
@@ -297,7 +351,8 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
               Expanded(
                 child: Text(
                   chat.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -311,7 +366,9 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
             children: [
               Expanded(
                 child: Text(
-                  chat.lastMessage.isNotEmpty ? chat.lastMessage : "پیامی ارسال نشده است",
+                  chat.lastMessage.isNotEmpty
+                      ? chat.lastMessage
+                      : "پیامی ارسال نشده است",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
@@ -326,7 +383,10 @@ class _ChatListViewState extends State<ChatListView> with SingleTickerProviderSt
                   ),
                   child: Text(
                     "${chat.unreadCount}",
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
             ],

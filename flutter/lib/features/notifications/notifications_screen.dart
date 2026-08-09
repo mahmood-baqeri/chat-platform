@@ -16,14 +16,24 @@ class NotificationsScreen extends StatelessWidget {
         children: const [
           ListTile(
             leading: Icon(Icons.notifications_active, color: Color(0xFF3B82F6)),
-            title: Text("ورود جدید به حساب کاربری", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            subtitle: Text("ورود از دستگاه Chrome / Linux", style: TextStyle(color: Colors.white54, fontSize: 11)),
+            title: Text("ورود جدید به حساب کاربری",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold)),
+            subtitle: Text("ورود از دستگاه Chrome / Linux",
+                style: TextStyle(color: Colors.white54, fontSize: 11)),
           ),
           Divider(color: Colors.white10),
           ListTile(
-            leading: Icon(Icons.group_add, color: Colors.emerald),
-            title: Text("افزوده شدن به گروه توسعه‌دهندگان", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            subtitle: Text("توسط علی رضایی", style: TextStyle(color: Colors.white54, fontSize: 11)),
+            leading: Icon(Icons.group_add),
+            title: Text("افزوده شدن به گروه توسعه‌دهندگان",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold)),
+            subtitle: Text("توسط علی رضایی",
+                style: TextStyle(color: Colors.white54, fontSize: 11)),
           ),
         ],
       ),
