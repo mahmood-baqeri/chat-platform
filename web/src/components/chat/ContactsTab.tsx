@@ -166,11 +166,11 @@ export const ContactsTab: React.FC = () => {
                   </p>
 
                   {/* Unread Count Badge */}
-                  {contact.unreadCount > 0 && (
+                  {/* {contact.unreadCount > 0 && (
                     <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-mono text-[10px] font-bold shrink-0">
                       {contact.unreadCount}
                     </span>
-                  )}
+                  )} */}
                 </div>
               </div>
 

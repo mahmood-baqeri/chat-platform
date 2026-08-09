@@ -47,6 +47,12 @@ export function enrichMessage(m: Message): Message {
   };
 }
 
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
+//  Send Push Notification
 async function sendPushNotificationForMessage(chatId: string, senderId: string, content: string, mentions: string[] = [], msgType: string = "text") {
   const pushConfig = getPushConfig();
   if (!pushConfig.isActive || pushPolicy === "disabled") return;
@@ -112,6 +118,11 @@ async function sendPushNotificationForMessage(chatId: string, senderId: string, 
   }
 }
 
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // GET User Chats
 router.get("/chats", (req: Request, res: Response) => {
   const currentUserId = getUserIdFromReq(req);
@@ -132,6 +143,11 @@ router.get("/chats", (req: Request, res: Response) => {
   res.json(userChats);
 });
 
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // GET Chat Detail
 router.get("/chats/:chatId", (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -158,6 +174,11 @@ router.get("/chats/:chatId", (req: Request, res: Response) => {
   res.json(formatChatForUser(targetChat, String(userId)));
 });
 
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // CREATE Chat Room
 router.post("/chats", async (req: Request, res: Response) => {
   const currentUserId = getUserIdFromReq(req);
@@ -176,9 +197,9 @@ router.post("/chats", async (req: Request, res: Response) => {
 
     let existingDirect = chats.find(
       c => c.type === "direct" &&
-           c.members?.length === 2 &&
-           c.members.some(m => String(m.userId) === String(u1)) &&
-           c.members.some(m => String(m.userId) === String(u2))
+        c.members?.length === 2 &&
+        c.members.some(m => String(m.userId) === String(u1)) &&
+        c.members.some(m => String(m.userId) === String(u2))
     );
 
     if (!existingDirect) {
@@ -214,6 +235,12 @@ router.post("/chats", async (req: Request, res: Response) => {
     rawMembers.unshift({ userId: currentUserId, role: "owner", joinedAt: new Date().toISOString(), isMuted: false });
   }
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Deduplicate members by string userId
   const uniqueMembersMap = new Map<string, ChatMember>();
   for (const rm of rawMembers) {
@@ -279,6 +306,12 @@ router.post("/chats", async (req: Request, res: Response) => {
   res.json(formatChatForUser(newChat, String(currentUserId || "")));
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // UPDATE Chat Room
 router.put("/chats/:chatId", async (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -314,6 +347,12 @@ router.put("/chats/:chatId", async (req: Request, res: Response) => {
   res.json(chat);
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // GET Messages in Chat Room with Full DB Pagination
 router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -344,9 +383,9 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const userId = req.query.userId as string;
 
   // Filter messages for current room
-  let chatMessages = messages.filter(m => 
-    String(m.chatId) === String(actualChatId) || 
-    String(m.chatId) === String(chatId) || 
+  let chatMessages = messages.filter(m =>
+    String(m.chatId) === String(actualChatId) ||
+    String(m.chatId) === String(chatId) ||
     String(m.chatId).replace(/^chat-/, '') === String(chatId).replace(/^chat-/, '') ||
     String(m.chatId).replace(/^room-/, '') === String(actualChatId).replace(/^room-/, '')
   );
@@ -424,8 +463,8 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   // Initial load logic: check for unread message or return latest messages
   let unreadMsgId: string | null = null;
   if (userId) {
-    const unreadMsg = chatMessages.find(m => 
-      String(m.senderId) !== String(userId) && 
+    const unreadMsg = chatMessages.find(m =>
+      String(m.senderId) !== String(userId) &&
       !m.seenBy?.some(s => String(s.userId) === String(userId))
     );
     if (unreadMsg) {
@@ -462,6 +501,12 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   });
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // POST New Message
 router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -571,6 +616,12 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
   res.json(enriched);
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // Edit Message
 router.put("/messages/:messageId", async (req: Request, res: Response) => {
   if (!systemSettings.editMessageEnabled) {
@@ -601,6 +652,12 @@ router.put("/messages/:messageId", async (req: Request, res: Response) => {
   res.json(msg);
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // Delete Message
 router.delete("/messages/:messageId", async (req: Request, res: Response) => {
   if (!systemSettings.deleteMessageEnabled) {
@@ -621,6 +678,12 @@ router.delete("/messages/:messageId", async (req: Request, res: Response) => {
   res.json({ message: "پیام با موفقیت حذف شد" });
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // Read Receipts
 router.post("/chats/:chatId/read", async (req: Request, res: Response) => {
   const { chatId } = req.params;
@@ -705,6 +768,12 @@ router.post("/chats/:chatId/read", async (req: Request, res: Response) => {
   res.json({ success: true, newSeensCount, unreadCount: remainingUnread });
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // GET Message Reactions
 router.get("/messages/:messageId/reactions", (req: Request, res: Response) => {
   const { messageId } = req.params;
@@ -726,6 +795,12 @@ router.get("/messages/:messageId/reactions", (req: Request, res: Response) => {
   res.json({ messageId, totalReactions: rxList.length, reactions: aggregated, list: detailed });
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // POST Toggle Reaction
 router.post("/messages/:messageId/reaction", async (req: Request, res: Response) => {
   const { messageId } = req.params;
@@ -789,6 +864,12 @@ router.post("/messages/:messageId/reaction", async (req: Request, res: Response)
   res.json(msg);
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // Pin Message
 router.post("/messages/:messageId/pin", async (req: Request, res: Response) => {
   if (!systemSettings.pinEnabled) {
@@ -809,6 +890,12 @@ router.post("/messages/:messageId/pin", async (req: Request, res: Response) => {
   res.json(msg);
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // Global Search
 router.get("/search", (req: Request, res: Response) => {
   const query = (req.query.q as string || "").toLowerCase();
@@ -839,6 +926,12 @@ router.get("/search", (req: Request, res: Response) => {
   });
 });
 
+
+//################################################
+//################################################
+//################################################
+//################################################
+//################################################
 // FastAPI Proxies
 router.get("/fastapi/realtime/stats", (req: Request, res: Response) => {
   res.json({

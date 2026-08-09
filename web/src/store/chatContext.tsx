@@ -20,11 +20,11 @@ interface ChatContextType {
   themeMode: ThemeMode;
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
-  
+
   // App & Chat Loading States
   isAppInitializing: boolean;
   isChatLoading: boolean;
-  
+
   // Modals & UI States
   showAuthModal: boolean;
   setShowAuthModal: (v: boolean) => void;
@@ -59,7 +59,7 @@ interface ChatContextType {
   isLoadingNewerMessages: boolean;
   loadNewerMessages: () => Promise<void>;
   firstUnreadMessageId: string | null;
-  
+
   // Menu state management
   activeOpenMenuId: string | null;
   setActiveOpenMenuId: (id: string | null) => void;
@@ -143,11 +143,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messages, setMessages] = useState<Message[]>([]);
   const [typingUsers, setTypingUsers] = useState<{ [chatId: string]: string[] }>({});
   const [theme, setThemeState] = useState<ThemeMode>("light");
-  
+
   // Loading States
   const [isAppInitializing, setIsAppInitializing] = useState(true);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  
+
   // Modals & Drawers
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -168,6 +168,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [drafts, setDrafts] = useState<{ [chatId: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState("");
 
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Keyboard shortcut Ctrl+K / Cmd+K / Ctrl+F for Search Modal
   useEffect(() => {
     const handleShortcut = (e: KeyboardEvent) => {
@@ -180,6 +185,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   const performSearch = useCallback(
     async (q: string) => {
       const trimmed = q.trim().toLowerCase();
@@ -211,6 +222,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [activeChat, messages]
   );
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   const jumpToMessage = useCallback(
     async (messageId: string) => {
       if (!activeChat) return;
@@ -261,6 +278,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [activeChat, messages]
   );
 
+
   // Pagination State
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
@@ -303,7 +321,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!soundEnabled) return;
     try {
       playAudioSound(soundVolume, soundChoice);
-    } catch (e) {}
+    } catch (e) { }
   }, [soundEnabled, soundChoice, soundVolume]);
 
   // Initialize & Persist Theme
@@ -347,6 +365,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
   }, []);
 
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Fetch initial system settings & current user
   useEffect(() => {
     let isMounted = true;
@@ -414,6 +437,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Fetch chats when user is available
   const refreshChats = useCallback(async () => {
     if (!currentUser) return;
@@ -444,6 +473,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoadingMoreRef = useRef(false);
   const isLoadingNewerRef = useRef(false);
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Fetch messages when activeChat changes with pagination & unread support
   useEffect(() => {
     isLoadingMoreRef.current = false;
@@ -460,6 +495,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsChatLoading(true);
     setMessages([]); // Instantly clear previous room messages
     setFirstUnreadMessageId(null);
+
 
     api.getMessages(activeChat.id, { limit: 20, userId: currentUser?.id })
       .then((res) => {
@@ -485,7 +521,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setActiveChat(null);
           try {
             window.history.replaceState({}, "", "/");
-          } catch (e) {}
+          } catch (e) { }
           setMobileView("sidebar");
         }
       })
@@ -500,6 +536,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [activeChat?.id, currentUser?.id]);
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   const loadMoreMessages = async () => {
     if (!activeChat || isLoadingMoreRef.current || isLoadingMoreMessages || !hasMoreMessages || messages.length === 0) return;
     const oldestId = messages[0].id;
@@ -536,6 +578,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   const loadNewerMessages = async () => {
     if (!activeChat || isLoadingNewerRef.current || isLoadingNewerMessages || !hasMoreAfter || messages.length === 0) return;
     const newestId = messages[messages.length - 1].id;
@@ -572,6 +620,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Setup WebSocket listeners
   useEffect(() => {
     const unsubNewMsg = wsClient.on("message:new", (newMsg: Message) => {
@@ -631,8 +685,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     });
 
-    const unsubMsgDeleted = wsClient.on("message:deleted", ({ id }: { id: string }) => {
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+    const unsubMsgDeleted = wsClient.on("message:deleted", (data: any) => {
+      // اگر data یک آبجکت با پراپرتی id هست
+      const messageId = data.id || data.messageId || data;
+      console.log("🆔 Extracted messageId:", messageId);
+
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => String(m.id) !== String(messageId));
+        if (filtered.length === prev.length) {
+          console.warn("⚠️ No message found with id:", messageId);
+          console.log("📋 Available ids:", prev.map(m => m.id));
+        }
+        return filtered;
+      });
     });
 
     const unsubReaction = wsClient.on("message:reaction_updated", (updatedMsg: Message) => {
@@ -696,10 +761,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       try {
         window.history.pushState({}, "", `/chat/${chat.id}`);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
+
+  //################################################
+  //################################################
+  //################################################
+  //################################################
+  //################################################
   // Synchronize URL Routes (/admin, /dashboard, /chat/:chatId)
   useEffect(() => {
     const handleUrlRoute = async () => {
@@ -737,7 +808,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Clean auto-redirect without blocking alert modal on invalid or forbidden chat rooms
           try {
             window.history.replaceState({}, "", "/");
-          } catch (e) {}
+          } catch (e) { }
           setMobileView("sidebar");
           if (chats.length > 0) {
             setActiveChat(chats[0]);
@@ -759,7 +830,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     const targetChat = targetChatId ? chats.find((c) => c.id === targetChatId) : activeChat;
     if (!targetChat || !currentUser) return;
-    
+
     const newMsg = await api.sendMessage(targetChat.id, {
       senderId: currentUser.id,
       content: data.content,
@@ -768,11 +839,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       replyToMessageId: data.replyToId || (targetChat.id === activeChat?.id ? replyTo?.id : undefined),
       replyToMessage: (targetChat.id === activeChat?.id && replyTo)
         ? {
-            id: replyTo.id,
-            senderName: replyTo.senderId === currentUser.id ? "شما" : "کاربر",
-            content: replyTo.content,
-            type: replyTo.type,
-          }
+          id: replyTo.id,
+          senderName: replyTo.senderId === currentUser.id ? "شما" : "کاربر",
+          content: replyTo.content,
+          type: replyTo.type,
+        }
         : undefined,
       forwardedFrom: data.forwardedFrom,
       scheduledFor: data.scheduledFor,
