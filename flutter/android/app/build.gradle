@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.origym"
     // compileSdk = flutter.compileSdkVersion
-    compileSdk = 35
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
