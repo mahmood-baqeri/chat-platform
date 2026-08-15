@@ -6,9 +6,9 @@ import { queryMySQL, executeMySQL, runMySQLMigrations } from "./mysql.js";
 import { queryPostgreSQL, executePostgreSQL, runPostgresMigrations } from "./postgres.js";
 
 const dbPath = path.join(process.cwd(), "data", "messenger.sqlite");
-
 let dbInstance: SqlJsDatabase | null = null;
 let dbInitialized = false;
+let migrationDone = false; // جلوگیری از اجرای مجدد
 
 export async function ensureDbInitialized(): Promise<void> {
   if (dbInitialized) return;
@@ -16,18 +16,20 @@ export async function ensureDbInitialized(): Promise<void> {
 
   const dbType = (process.env.DB_TYPE || "sqlite").toLowerCase();
   if (dbType === "mysql") {
-    console.log("🔌 DB_TYPE=mysql detected. Initializing MySQL database & running migrations...");
+    console.log("🔌 Initializing MySQL database...");
     await runMySQLMigrations();
   } else if (dbType === "postgres" || dbType === "postgresql") {
-    console.log("🔌 DB_TYPE=postgres detected. Initializing PostgreSQL database & running migrations...");
+    console.log("🔌 Initializing PostgreSQL database...");
     await runPostgresMigrations();
   } else {
-    console.log("🔌 DB_TYPE=sqlite (or default). Using SQLite database...");
+    console.log("🔌 Using SQLite database...");
     await getDbInstance();
   }
 }
 
 function initTables(db: SqlJsDatabase) {
+  console.log("📊 Creating tables...");
+
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,7 +84,8 @@ function initTables(db: SqlJsDatabase) {
       joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
       is_muted INTEGER DEFAULT 0,
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(room_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -132,15 +135,6 @@ function initTables(db: SqlJsDatabase) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS sms_settings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      provider_id TEXT NOT NULL,
-      api_key TEXT,
-      sender_number TEXT,
-      pattern_code TEXT,
-      is_enabled INTEGER DEFAULT 1
-    );
-
     CREATE TABLE IF NOT EXISTS push_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       vapid_public_key TEXT,
@@ -151,9 +145,10 @@ function initTables(db: SqlJsDatabase) {
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      endpoint TEXT UNIQUE NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
       subscription_json TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS system_settings (
@@ -181,68 +176,60 @@ function initTables(db: SqlJsDatabase) {
     );
   `);
 
-  // Seed default data if empty
-  const res = db.exec("SELECT COUNT(*) as cnt FROM users");
-  const count = res[0] && res[0].values[0] ? (res[0].values[0][0] as number) : 0;
-  if (count === 0) {
+  console.log("✅ Tables ready!");
+
+  // فقط یکبار Seed اجرا میشه
+  if (!migrationDone) {
     seedDatabase(db);
+    migrationDone = true;
   }
 }
 
 function seedDatabase(db: SqlJsDatabase) {
-  const now = new Date().toISOString();
-  
-  // Seed Users
-  db.run(`
-    INSERT INTO users (id, phone, username, first_name, last_name, display_name, avatar_url, bio, status, role) VALUES
-    (1, '09121111111', 'ali_rezaei', 'علی', 'رضایی', 'علی رضایی (مدیر ارشد)', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', 'توسعه‌دهنده سیستم‌های توزیع‌شده', 'online', 'owner'),
-    (2, '09122222222', 'sara_ahmadi', 'سارا', 'احمدی', 'سارا احمدی', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', 'طراح رابط کاربری', 'online', 'admin'),
-    (3, '09123333333', 'mohammad_hosseini', 'محمد', 'حسینی', 'محمد حسینی', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', 'مدیر پروژه', 'offline', 'user'),
-    (4, '09124444444', 'maryam_karimi', 'مریم', 'کریمی', 'مریم کریمی', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80', 'متخصص DevOps', 'online', 'user');
-  `);
+  try {
+    // چک کردن وجود کاربران
+    const result = db.exec("SELECT COUNT(*) as count FROM users");
+    const count = result[0]?.values?.[0]?.[0] || 0;
 
-  // Seed System Settings
-  db.run(`
-    INSERT INTO system_settings (id, registration_enabled, login_enabled, otp_enabled, channels_enabled, groups_enabled, max_file_size_mb, push_policy)
-    VALUES (1, 1, 1, 1, 1, 1, 25, 'always');
-  `);
+    if (count === 0) {
+      console.log("🌱 Seeding initial data...");
 
-  // Seed Default Rooms
-  const baseTime = Date.now() - 48 * 3600 * 1000;
-  const room1Time = new Date(baseTime).toISOString();
-  db.run(`
-    INSERT INTO rooms (id, type, title, description, owner_id, created_at) VALUES
-    ('room-1', 'group', 'تیم توسعه محصول (Product Dev)', 'گروه هماهنگی تیم توسعه و معماری سیستم', 1, '${room1Time}'),
-    ('room-2', 'direct', 'سارا احمدی', '', 1, '${room1Time}');
-  `);
+      // Seed Users
+      const users = [
+        ['09121111111', 'smb', 'محمود', 'باقری', 'محمود باقری', 'https://i.pravatar.cc/150?img=1', 'مدیر ارشد سیستم', 'online', 'owner'],
+        ['09122222222', 'kazem', 'حسین', 'کاظمیان', 'حسین کاظمیان', 'https://i.pravatar.cc/150?img=2', 'مدیر فنی', 'online', 'admin'],
+        ['09123333333', 'nasr', 'مصطفی', 'نصری', 'مصطفی نصری', 'https://i.pravatar.cc/150?img=3', 'توسعه‌دهنده ارشد', 'offline', 'user'],
+        ['09124444444', 'rezaei', 'رضا', 'رضایی', 'رضا رضایی', 'https://i.pravatar.cc/150?img=4', 'مدیر پروژه', 'online', 'admin'],
+        ['09125555555', 'karimi', 'علی', 'کریمی', 'علی کریمی', 'https://i.pravatar.cc/150?img=5', 'توسعه‌دهنده بک‌اند', 'offline', 'user'],
+        ['09126666666', 'ahmadi', 'احمد', 'احمدی', 'احمد احمدی', 'https://i.pravatar.cc/150?img=6', 'طراح UI/UX', 'online', 'user'],
+        ['09127777777', 'mohammadi', 'محمد', 'محمدی', 'محمد محمدی', 'https://i.pravatar.cc/150?img=7', 'توسعه‌دهنده موبایل', 'offline', 'user'],
+        ['09128888888', 'hassani', 'حسن', 'حسنی', 'حسن حسنی', 'https://i.pravatar.cc/150?img=8', 'کارشناس امنیت', 'online', 'admin'],
+        ['09129999999', 'hosseini', 'سید', 'حسینی', 'سید حسینی', 'https://i.pravatar.cc/150?img=9', 'توسعه‌دهنده فول‌استک', 'offline', 'user'],
+        ['09120000000', 'farhadi', 'فرهاد', 'فرهادی', 'فرهاد فرهادی', 'https://i.pravatar.cc/150?img=10', 'کارشناس داده', 'online', 'user']
+      ];
 
-  db.run(`
-    INSERT INTO room_members (id, room_id, user_id, role, joined_at) VALUES
-    (1, 'room-1', 1, 'owner', '${room1Time}'),
-    (2, 'room-1', 2, 'admin', '${room1Time}'),
-    (3, 'room-1', 3, 'user', '${room1Time}'),
-    (4, 'room-1', 4, 'user', '${room1Time}'),
-    (5, 'room-2', 1, 'owner', '${room1Time}'),
-    (6, 'room-2', 2, 'user', '${room1Time}');
-  `);
+      for (const user of users) {
+        db.run(
+          `INSERT INTO users (phone, username, first_name, last_name, display_name, avatar_url, bio, status, role) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          user
+        );
+      }
 
-  // Seed 40 Messages in room-1 over time
-  for (let i = 1; i <= 40; i++) {
-    const msgTime = new Date(baseTime + i * 15 * 60 * 1000).toISOString();
-    const senderId = i % 4 === 1 ? 1 : i % 4 === 2 ? 2 : i % 4 === 3 ? 3 : 4;
-    const content = `پیام تست شماره ${i} برای بررسی سیستم Pagination - تاریخچه پیام‌ها در زمان ${i * 15} دقیقه پیش`;
-    db.run(`
-      INSERT INTO messages (id, chat_id, sender_id, type, content, status, created_at)
-      VALUES (${i}, 'room-1', ${senderId}, 'text', '${content}', 'sent', '${msgTime}');
-    `);
+      // Seed System Settings
+      db.run(
+        `INSERT INTO system_settings (registration_enabled, login_enabled, otp_enabled, channels_enabled, groups_enabled, max_file_size_mb, push_policy)
+         VALUES (1, 1, 1, 1, 1, 25, 'always')`
+      );
 
-    // Mark messages 1..25 as seen by user 1, messages 26..40 left unread for user 1 to test unread jump
-    if (i <= 25) {
-      db.run(`
-        INSERT INTO message_seens (id, message_id, user_id, room_id, seen_at, created_at)
-        VALUES (${i}, ${i}, 1, 'room-1', '${msgTime}', '${msgTime}');
-      `);
+      const newCount = db.exec("SELECT COUNT(*) as count FROM users")[0]?.values?.[0]?.[0] || 0;
+      console.log(`✅ Seed completed! ${newCount} users inserted.`);
+      saveDb();
+    } else {
+      console.log(`ℹ️ Users already exist (${count} users), skipping seed.`);
     }
+  } catch (error) {
+    console.error("❌ Error in seed:", error);
   }
 }
 
@@ -269,16 +256,19 @@ export async function getDbInstance(): Promise<SqlJsDatabase> {
 
 export function saveDb() {
   if (!dbInstance) return;
-  const data = dbInstance.export();
-  const buffer = Buffer.from(data);
-  const dbDir = path.join(process.cwd(), "data");
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+  try {
+    const data = dbInstance.export();
+    const buffer = Buffer.from(data);
+    const dbDir = path.join(process.cwd(), "data");
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+    fs.writeFileSync(dbPath, buffer);
+  } catch (error) {
+    console.error("Error saving SQLite database:", error);
   }
-  fs.writeFileSync(dbPath, buffer);
 }
 
-// Helper SQL Query wrapper functions
 export function queryAll<T = any>(db: SqlJsDatabase, sql: string, params: any[] = []): T[] {
   const stmt = db.prepare(sql);
   stmt.bind(params);

@@ -26,34 +26,11 @@ export async function runPostgresMigrations(): Promise<boolean> {
   try {
     const pool = getPostgresPool();
     const schemaPath = path.join(process.cwd(), "server", "db", "schema_postgres.sql");
+
     if (fs.existsSync(schemaPath)) {
       const sqlScript = fs.readFileSync(schemaPath, "utf-8");
       await pool.query(sqlScript);
-
-      try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS push_settings (
-            id VARCHAR(64) PRIMARY KEY,
-            vapid_public_key TEXT,
-            vapid_private_key TEXT,
-            is_enabled INTEGER DEFAULT 1
-          );
-        `);
-      } catch (e: any) {}
-
-      try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS push_subscriptions (
-            id VARCHAR(64) PRIMARY KEY,
-            user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            endpoint TEXT NOT NULL UNIQUE,
-            subscription_json TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-      } catch (e: any) {}
-
-      console.log("✅ PostgreSQL Schema and seed migration completed successfully!");
+      console.log("✅ PostgreSQL Schema migrated successfully!");
       return true;
     }
     return false;
@@ -63,7 +40,6 @@ export async function runPostgresMigrations(): Promise<boolean> {
   }
 }
 
-// Convert SQLite '?' parameters to PostgreSQL '$1, $2, ...'
 function convertQuestionMarkParams(sql: string): string {
   let paramIndex = 1;
   return sql.replace(/\?/g, () => `$${paramIndex++}`);

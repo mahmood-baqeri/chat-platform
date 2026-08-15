@@ -1,5 +1,6 @@
--- PostgreSQL Database Schema for Messenger Platform
+-- PostgreSQL Schema
 
+-- Users
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   phone VARCHAR(32) NOT NULL UNIQUE,
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- User Sessions
 CREATE TABLE IF NOT EXISTS user_sessions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   is_current INTEGER DEFAULT 0
 );
 
+-- Rooms
 CREATE TABLE IF NOT EXISTS rooms (
   id VARCHAR(64) PRIMARY KEY,
   type VARCHAR(32) NOT NULL,
@@ -44,6 +47,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Room Members
 CREATE TABLE IF NOT EXISTS room_members (
   id SERIAL PRIMARY KEY,
   room_id VARCHAR(64) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
@@ -54,6 +58,7 @@ CREATE TABLE IF NOT EXISTS room_members (
   UNIQUE(room_id, user_id)
 );
 
+-- Messages
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   chat_id VARCHAR(64) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
@@ -69,6 +74,7 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Message Seens
 CREATE TABLE IF NOT EXISTS message_seens (
   id SERIAL PRIMARY KEY,
   message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -81,6 +87,7 @@ CREATE TABLE IF NOT EXISTS message_seens (
   UNIQUE(message_id, user_id)
 );
 
+-- Message Reactions
 CREATE TABLE IF NOT EXISTS message_reactions (
   id SERIAL PRIMARY KEY,
   message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -91,6 +98,7 @@ CREATE TABLE IF NOT EXISTS message_reactions (
   UNIQUE(message_id, user_id, emoji)
 );
 
+-- Forbidden Words
 CREATE TABLE IF NOT EXISTS forbidden_words (
   id SERIAL PRIMARY KEY,
   word VARCHAR(128) NOT NULL UNIQUE,
@@ -99,6 +107,7 @@ CREATE TABLE IF NOT EXISTS forbidden_words (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Push Settings
 CREATE TABLE IF NOT EXISTS push_settings (
   id SERIAL PRIMARY KEY,
   vapid_public_key TEXT,
@@ -106,6 +115,7 @@ CREATE TABLE IF NOT EXISTS push_settings (
   is_enabled INTEGER DEFAULT 1
 );
 
+-- Push Subscriptions
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -114,6 +124,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- System Settings
 CREATE TABLE IF NOT EXISTS system_settings (
   id SERIAL PRIMARY KEY,
   registration_enabled INTEGER DEFAULT 1,
@@ -129,6 +140,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
   push_policy VARCHAR(64) DEFAULT 'always'
 );
 
+-- System Audit Logs
 CREATE TABLE IF NOT EXISTS system_audit_logs (
   id SERIAL PRIMARY KEY,
   actor_name VARCHAR(128) NOT NULL,
