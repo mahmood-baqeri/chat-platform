@@ -30,22 +30,39 @@ export async function ensureDbInitialized(): Promise<void> {
 function initTables(db: SqlJsDatabase) {
   console.log("📊 Creating tables...");
 
+  // 🔥 ثبت تابع سفارشی برای زمان تهران
+  db.create_function("tehran_now", () => {
+    const now = new Date();
+    // تنظیم به منطقه زمانی تهران (UTC+3:30)
+    const tehranTime = new Date(now.getTime() + (3.5 * 60 * 60 * 1000));
+    return tehranTime.toISOString().slice(0, 19).replace("T", " ");
+  });
+
+  db.create_function("tehran_timestamp", (timestamp: string) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    // تبدیل به تهران
+    const tehranTime = new Date(date.getTime() + (3.5 * 60 * 60 * 1000));
+    return tehranTime.toISOString().slice(0, 19).replace("T", " ");
+  });
+
+
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phone TEXT NOT NULL UNIQUE,
-      username TEXT NOT NULL UNIQUE,
+      nationalCode TEXT NOT NULL UNIQUE,
+      personCode TEXT NOT NULL UNIQUE,
       first_name TEXT,
       last_name TEXT,
       display_name TEXT NOT NULL,
       avatar_url TEXT,
-      bio TEXT,
       status TEXT DEFAULT 'offline',
       last_seen TEXT,
       role TEXT DEFAULT 'user',
       is_banned INTEGER DEFAULT 0,
       is_muted INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT (tehran_now())
     );
 
     CREATE TABLE IF NOT EXISTS user_sessions (
@@ -73,7 +90,7 @@ function initTables(db: SqlJsDatabase) {
       unread_count INTEGER DEFAULT 0,
       member_count INTEGER DEFAULT 0,
       owner_id INTEGER,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT  (tehran_now())
     );
 
     CREATE TABLE IF NOT EXISTS room_members (
@@ -81,7 +98,7 @@ function initTables(db: SqlJsDatabase) {
       room_id TEXT NOT NULL,
       user_id INTEGER NOT NULL,
       role TEXT DEFAULT 'user',
-      joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      joined_at TEXT DEFAULT  (tehran_now()),
       is_muted INTEGER DEFAULT 0,
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -100,7 +117,7 @@ function initTables(db: SqlJsDatabase) {
       forward_from_id INTEGER,
       attachments TEXT,
       forwarded_from TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT (tehran_now()),
       FOREIGN KEY (chat_id) REFERENCES rooms(id) ON DELETE CASCADE,
       FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -110,10 +127,10 @@ function initTables(db: SqlJsDatabase) {
       message_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
       room_id TEXT NOT NULL,
-      seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      seen_at TEXT DEFAULT (tehran_now()),
       delivered_at TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT (tehran_now()),
+      updated_at TEXT DEFAULT (tehran_now()),
       UNIQUE(message_id, user_id)
     );
 
@@ -122,8 +139,8 @@ function initTables(db: SqlJsDatabase) {
       message_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
       emoji TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT (tehran_now()),
+      updated_at TEXT DEFAULT (tehran_now()),
       UNIQUE(message_id, user_id, emoji)
     );
 
@@ -132,7 +149,7 @@ function initTables(db: SqlJsDatabase) {
       word TEXT NOT NULL UNIQUE,
       category TEXT NOT NULL,
       is_enabled INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TEXT DEFAULT (tehran_now())
     );
 
     CREATE TABLE IF NOT EXISTS push_settings (
@@ -147,7 +164,7 @@ function initTables(db: SqlJsDatabase) {
       user_id INTEGER NOT NULL,
       endpoint TEXT NOT NULL UNIQUE,
       subscription_json TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT  (tehran_now()),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 

@@ -1,3 +1,5 @@
+// web/src/services/api.ts
+
 const authFetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const token = localStorage.getItem("app_auth_token");
   const headers: Record<string, string> = {
@@ -14,12 +16,14 @@ import { SystemSettings, User, UserSession, Chat, Message, Attachment, SystemAud
 const API_BASE = "/api";
 
 export const api = {
-  // Auth
-  sendOtp: async (phone: string) => {
+  // ==========================================
+  // AUTH
+  // ==========================================
+  sendOtp: async (identifier: string) => {
     const res = await authFetch(`${API_BASE}/auth/otp/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ identifier }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -28,11 +32,11 @@ export const api = {
     return res.json();
   },
 
-  verifyOtp: async (phone: string, code: string) => {
+  verifyOtp: async (identifier: string, code: string) => {
     const res = await authFetch(`${API_BASE}/auth/otp/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, code }),
+      body: JSON.stringify({ identifier, code }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -68,7 +72,9 @@ export const api = {
     return res.json();
   },
 
-  // Settings
+  // ==========================================
+  // SETTINGS
+  // ==========================================
   getSettings: async () => {
     const res = await authFetch(`${API_BASE}/settings`);
     return res.json() as Promise<SystemSettings>;
@@ -83,7 +89,9 @@ export const api = {
     return res.json();
   },
 
-  // Chats
+  // ==========================================
+  // CHATS
+  // ==========================================
   getChats: async (userId: number | string) => {
     const res = await authFetch(`${API_BASE}/chats?userId=${userId}`);
     return res.json() as Promise<Chat[]>;
@@ -115,7 +123,9 @@ export const api = {
     return res.json() as Promise<Chat>;
   },
 
-  // Messages
+  // ==========================================
+  // MESSAGES
+  // ==========================================
   getMessages: async (
     chatId: number | string,
     opts?: number | { limit?: number; beforeId?: number | string; afterId?: number | string; aroundId?: number | string; userId?: number | string },
@@ -247,7 +257,9 @@ export const api = {
     return res.json();
   },
 
-  // Contacts
+  // ==========================================
+  // CONTACTS
+  // ==========================================
   getContacts: async (userId: number | string = 1) => {
     const res = await authFetch(`${API_BASE}/contacts?userId=${userId}`);
     return res.json();
@@ -276,7 +288,9 @@ export const api = {
     return res.json();
   },
 
-  // Upload with real-time XHR progress & cancellation
+  // ==========================================
+  // UPLOAD
+  // ==========================================
   uploadFileWithProgress: (
     file: File,
     duration?: number,
@@ -378,7 +392,9 @@ export const api = {
     return promise;
   },
 
-  // Admin
+  // ==========================================
+  // ADMIN - USERS
+  // ==========================================
   getAdminStats: async () => {
     const res = await authFetch(`${API_BASE}/admin/stats`);
     return res.json();
@@ -424,6 +440,22 @@ export const api = {
     return res.json();
   },
 
+  createAdminUser: async (data: Partial<User>) => {
+    const res = await authFetch(`${API_BASE}/admin/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "خطا در ایجاد کاربر");
+    }
+    return res.json() as Promise<User>;
+  },
+
+  // ==========================================
+  // ADMIN - GROUPS
+  // ==========================================
   getAdminGroups: async () => {
     const res = await authFetch(`${API_BASE}/admin/groups`);
     return res.json() as Promise<Chat[]>;
@@ -454,6 +486,9 @@ export const api = {
     return res.json();
   },
 
+  // ==========================================
+  // ADMIN - CHANNELS
+  // ==========================================
   getAdminChannels: async () => {
     const res = await authFetch(`${API_BASE}/admin/channels`);
     return res.json() as Promise<Chat[]>;
@@ -484,6 +519,9 @@ export const api = {
     return res.json();
   },
 
+  // ==========================================
+  // ADMIN - MESSAGES
+  // ==========================================
   getAdminMessages: async () => {
     const res = await authFetch(`${API_BASE}/admin/messages`);
     return res.json() as Promise<{ activeMessages: Message[]; deletedMessages: Message[] }>;
@@ -496,6 +534,22 @@ export const api = {
     return res.json();
   },
 
+  updateAdminMessageId: async (messageId: string, newId: string, content?: string) => {
+    const res = await authFetch(`${API_BASE}/admin/messages/${messageId}/id`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newId, content }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "خطا در بروزرسانی شناسه پیام");
+    }
+    return res.json() as Promise<Message>;
+  },
+
+  // ==========================================
+  // ADMIN - FILES
+  // ==========================================
   getAdminFiles: async () => {
     const res = await authFetch(`${API_BASE}/admin/files`);
     return res.json() as Promise<{ files: Attachment[]; totalCount: number; totalSizeBytes: number; totalSizeMB: string }>;
@@ -508,94 +562,17 @@ export const api = {
     return res.json();
   },
 
+  // ==========================================
+  // ADMIN - LOGS
+  // ==========================================
   getAdminLogs: async () => {
     const res = await authFetch(`${API_BASE}/admin/logs`);
     return res.json() as Promise<SystemAuditLog[]>;
   },
 
-  subscribePushNotification: async (subscription: any, userId?: string) => {
-    const res = await authFetch(`${API_BASE}/notifications/subscribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription, userId }),
-    });
-    return res.json();
-  },
-
-  getAdminPushSubscriptions: async () => {
-    const res = await authFetch(`${API_BASE}/admin/push-subscriptions`);
-    return res.json();
-  },
-
-  // Forbidden Words
-  getForbiddenWords: async () => {
-    const res = await authFetch(`${API_BASE}/admin/forbidden-words`);
-    return res.json() as Promise<ForbiddenWord[]>;
-  },
-
-  createForbiddenWord: async (data: { word: string; category?: WordCategory; isEnabled?: boolean }) => {
-    const res = await authFetch(`${API_BASE}/admin/forbidden-words`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "خطا در ایجاد کلمه ممنوعه");
-    }
-    return res.json() as Promise<ForbiddenWord>;
-  },
-
-  updateForbiddenWord: async (id: string, data: Partial<ForbiddenWord>) => {
-    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "خطا در ویرایش کلمه ممنوعه");
-    }
-    return res.json() as Promise<ForbiddenWord>;
-  },
-
-  deleteForbiddenWord: async (id: string) => {
-    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
-      method: "DELETE",
-    });
-    return res.json();
-  },
-
-  // Role Permissions
-  getRolePermissions: async () => {
-    const res = await authFetch(`${API_BASE}/admin/permissions`);
-    return res.json() as Promise<RolePermission[]>;
-  },
-
-  updateRolePermissions: async (permissions: RolePermission[]) => {
-    const res = await authFetch(`${API_BASE}/admin/permissions`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ permissions }),
-    });
-    return res.json();
-  },
-
-  // User Admin Operations
-  createAdminUser: async (data: Partial<User>) => {
-    const res = await authFetch(`${API_BASE}/admin/users`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "خطا در ایجاد کاربر");
-    }
-    return res.json() as Promise<User>;
-  },
-
-  // Room Members & Ownership Admin Operations
+  // ==========================================
+  // ADMIN - ROOM MEMBERS
+  // ==========================================
   addRoomMemberAdmin: async (chatId: string, userId: string, role: string = "user") => {
     const res = await authFetch(`${API_BASE}/admin/rooms/${chatId}/members`, {
       method: "POST",
@@ -638,26 +615,67 @@ export const api = {
     return res.json() as Promise<Chat>;
   },
 
-  // Message ID update (with unique check)
-  updateAdminMessageId: async (messageId: string, newId: string, content?: string) => {
-    const res = await authFetch(`${API_BASE}/admin/messages/${messageId}/id`, {
-      method: "PUT",
+  // ==========================================
+  // ADMIN - FORBIDDEN WORDS
+  // ==========================================
+  getForbiddenWords: async () => {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words`);
+    return res.json() as Promise<ForbiddenWord[]>;
+  },
+
+  createForbiddenWord: async (data: { word: string; category?: WordCategory; isEnabled?: boolean }) => {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ newId, content }),
+      body: JSON.stringify(data),
     });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || "خطا در بروزرسانی شناسه پیام");
+      throw new Error(err.error || "خطا در ایجاد کلمه ممنوعه");
     }
-    return res.json() as Promise<Message>;
+    return res.json() as Promise<ForbiddenWord>;
   },
 
-  search: async (q: string) => {
-    const res = await authFetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
-    return res.json() as Promise<{ users: User[]; chats: Chat[]; messages: Message[] }>;
+  updateForbiddenWord: async (id: string, data: Partial<ForbiddenWord>) => {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "خطا در ویرایش کلمه ممنوعه");
+    }
+    return res.json() as Promise<ForbiddenWord>;
   },
 
-  // Database Settings Admin APIs
+  deleteForbiddenWord: async (id: string) => {
+    const res = await authFetch(`${API_BASE}/admin/forbidden-words/${id}`, {
+      method: "DELETE",
+    });
+    return res.json();
+  },
+
+  // ==========================================
+  // ADMIN - ROLE PERMISSIONS
+  // ==========================================
+  getRolePermissions: async () => {
+    const res = await authFetch(`${API_BASE}/admin/permissions`);
+    return res.json() as Promise<RolePermission[]>;
+  },
+
+  updateRolePermissions: async (permissions: RolePermission[]) => {
+    const res = await authFetch(`${API_BASE}/admin/permissions`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions }),
+    });
+    return res.json();
+  },
+
+  // ==========================================
+  // ADMIN - DATABASE SETTINGS
+  // ==========================================
   getDatabaseSettings: async () => {
     const res = await authFetch(`${API_BASE}/admin/db-settings`);
     return res.json();
@@ -689,7 +707,9 @@ export const api = {
     return data;
   },
 
-  // SMS Panel Settings Admin APIs
+  // ==========================================
+  // ADMIN - SMS SETTINGS
+  // ==========================================
   getSmsSettings: async () => {
     const res = await authFetch(`${API_BASE}/admin/sms-settings`);
     return res.json();
@@ -734,9 +754,24 @@ export const api = {
     return resData;
   },
 
-  // Push Notification Admin & Client APIs
+  // ==========================================
+  // PUSH NOTIFICATIONS (جدید)
+  // ==========================================
+  getVapidPublicKey: async () => {
+    const res = await fetch(`${API_BASE}/push-public-key`);
+    if (!res.ok) {
+      throw new Error("خطا در دریافت کلید VAPID");
+    }
+    return res.json();
+  },
+
+
   getPushSettings: async () => {
     const res = await authFetch(`${API_BASE}/admin/push-settings`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "خطا در دریافت تنظیمات نوتیفیکیشن" }));
+      throw new Error(err.error || "خطا در دریافت تنظیمات نوتیفیکیشن");
+    }
     return res.json();
   },
 
@@ -764,7 +799,7 @@ export const api = {
     return data;
   },
 
-  subscribePush: async (subscription: any, userId?: string) => {
+  subscribePush: async (subscription: PushSubscription, userId?: string) => {
     const res = await authFetch(`${API_BASE}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -786,17 +821,9 @@ export const api = {
     return res.json();
   },
 
-  sendTestPush: async (data: { title: string; message: string; iconUrl?: string; imageUrl?: string; targetUser?: string; link?: string }) => {
-    const res = await authFetch(`${API_BASE}/admin/push-test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const resData = await res.json();
-    if (!res.ok || !resData.success) {
-      throw new Error(resData.error || resData.message || "ارسال Push تستی با خطا مواجه شد");
-    }
-    return resData;
+  getAdminPushSubscriptions: async () => {
+    const res = await authFetch(`${API_BASE}/admin/push-subscriptions`);
+    return res.json();
   },
 
   getPushPolicy: async () => {
@@ -811,6 +838,26 @@ export const api = {
       body: JSON.stringify({ policy }),
     });
     return res.json();
+  },
+
+  sendTestPush: async (data: {
+    title: string;
+    message: string;
+    iconUrl?: string;
+    imageUrl?: string;
+    targetUser?: string;
+    link?: string
+  }) => {
+    const res = await authFetch(`${API_BASE}/admin/push-test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const resData = await res.json();
+    if (!res.ok || !resData.success) {
+      throw new Error(resData.error || resData.message || "ارسال Push تستی با خطا مواجه شد");
+    }
+    return resData;
   },
 
   sendAdminPush: async (data: {
@@ -832,5 +879,13 @@ export const api = {
       throw new Error(resData.error || resData.message || "ارسال نوتیفیکیشن با خطا مواجه شد");
     }
     return resData;
+  },
+
+  // ==========================================
+  // SEARCH
+  // ==========================================
+  search: async (q: string) => {
+    const res = await authFetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+    return res.json() as Promise<{ users: User[]; chats: Chat[]; messages: Message[] }>;
   },
 };

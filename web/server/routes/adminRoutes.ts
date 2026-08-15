@@ -96,12 +96,12 @@ router.get("/admin/users", (req: Request, res: Response) => {
 });
 
 router.post("/admin/users", async (req: Request, res: Response) => {
-  const { phone, username, firstName, lastName, displayName, role, bio } = req.body;
-  if (!phone || !username) {
-    return res.status(400).json({ error: "شماره موبایل و نام کاربری الزامی است" });
+  const { phone, nationalCode, firstName, lastName, displayName, role, personCode } = req.body;
+  if (!phone || !nationalCode) {
+    return res.status(400).json({ error: "شماره موبایل و کد ملی الزامی است" });
   }
 
-  const existing = users.find(u => u.username === username || u.phone === phone);
+  const existing = users.find(u => u.nationalCode === nationalCode || u.phone === phone);
   if (existing) {
     return res.status(400).json({ error: "کاربری با این شماره یا نام کاربری وجود دارد" });
   }
@@ -110,12 +110,12 @@ router.post("/admin/users", async (req: Request, res: Response) => {
   const newUser: User = {
     id: newId,
     phone,
-    username,
+    nationalCode,
     firstName: firstName || "کاربر",
     lastName: lastName || "جدید",
     displayName: displayName || `${firstName || 'کاربر'} ${lastName || ''}`.trim(),
     avatarUrl: AvatarPhoto,
-    bio: bio || "",
+    personCode: personCode || "",
     status: "offline",
     lastSeen: "لحظاتی پیش",
     role: (role as UserRole) || "user",
@@ -127,8 +127,8 @@ router.post("/admin/users", async (req: Request, res: Response) => {
   users.push(newUser);
 
   await dbExecute(
-    `INSERT INTO users (id, phone, username, first_name, last_name, display_name, avatar_url, bio, status, role, is_banned, is_muted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [newUser.id, newUser.phone, newUser.username, newUser.firstName, newUser.lastName, newUser.displayName, newUser.avatarUrl, newUser.bio, newUser.status, newUser.role, 0, 0, newUser.createdAt]
+    `INSERT INTO users (id, phone, nationalCode, firstName, lastName, displayName, avatarUrl, personCode, status, role, isBanned, isMuted, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [newUser.id, newUser.phone, newUser.nationalCode, newUser.firstName, newUser.lastName, newUser.displayName, newUser.avatarUrl, newUser.personCode, newUser.status, newUser.role, 0, 0, newUser.createdAt]
   );
 
   res.json(newUser);
@@ -139,18 +139,18 @@ router.put("/admin/users/:userId", async (req: Request, res: Response) => {
   const user = users.find(u => String(u.id) === String(userId));
   if (!user) return res.status(404).json({ error: "کاربر یافت نشد" });
 
-  const { displayName, username, role, isBanned, isMuted, phone, bio } = req.body;
+  const { displayName, nationalCode, role, isBanned, isMuted, phone, personCode } = req.body;
   if (displayName) user.displayName = displayName;
-  if (username) user.username = username;
+  if (nationalCode) user.nationalCode = nationalCode;
   if (role) user.role = role as UserRole;
   if (phone) user.phone = phone;
-  if (bio !== undefined) user.bio = bio;
+  if (personCode !== undefined) user.personCode = personCode;
   if (isBanned !== undefined) user.isBanned = isBanned;
   if (isMuted !== undefined) user.isMuted = isMuted;
 
   await dbExecute(
-    `UPDATE users SET display_name = ?, username = ?, role = ?, phone = ?, bio = ?, is_banned = ?, is_muted = ? WHERE id = ?`,
-    [user.displayName, user.username, user.role, user.phone, user.bio, user.isBanned ? 1 : 0, user.isMuted ? 1 : 0, user.id]
+    `UPDATE users SET display_name = ?, nationalCode = ?, role = ?, phone = ?, personCode = ?, is_banned = ?, is_muted = ? WHERE id = ?`,
+    [user.displayName, user.nationalCode, user.role, user.phone, user.personCode, user.isBanned ? 1 : 0, user.isMuted ? 1 : 0, user.id]
   );
 
   res.json(user);
@@ -391,7 +391,7 @@ router.post("/admin/groups", async (req: Request, res: Response) => {
       `INSERT INTO room_members (room_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)`,
       [newGroup.id, numOwnerId, "owner", newGroup.createdAt]
     );
-  } catch (e) {}
+  } catch (e) { }
   broadcastWSEvent("chat:created", newGroup);
   res.json(newGroup);
 });
@@ -469,7 +469,7 @@ router.post("/admin/channels", async (req: Request, res: Response) => {
       `INSERT INTO room_members (room_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)`,
       [newChannel.id, numOwnerId, "owner", newChannel.createdAt]
     );
-  } catch (e) {}
+  } catch (e) { }
   broadcastWSEvent("chat:created", newChannel);
   res.json(newChannel);
 });
@@ -589,7 +589,7 @@ router.get("/admin/system-settings", async (req: Request, res: Response) => {
         pushPolicy: s.push_policy || "always",
       });
     }
-  } catch (e) {}
+  } catch (e) { }
 
   res.json({
     registrationEnabled: systemSettings.registrationEnabled,
@@ -655,7 +655,7 @@ router.post("/admin/system-settings", async (req: Request, res: Response) => {
       systemSettings.maxFileSizeMB = maxFileSizeMb;
       await dbExecute(`UPDATE system_settings SET max_file_size_mb = ? WHERE id = 1`, [maxFileSizeMb]);
     }
-  } catch (e) {}
+  } catch (e) { }
 
   res.json({ success: true, message: "تنظیمات سیستم با موفقیت به‌روزرسانی شد." });
 });

@@ -24,7 +24,7 @@ function AppContent() {
         sessionStorage.setItem("redirect_after_login", window.location.pathname + window.location.search);
         try {
           window.history.replaceState({}, "", "/login");
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }, [isAppInitializing, currentUser]);
@@ -36,14 +36,14 @@ function AppContent() {
   // Prevent unauthenticated access: render ONLY Login when not logged in
   if (!currentUser) {
     return (
-      <div dir="rtl" className="h-screen w-screen bg-[#0F111A] text-slate-100 flex items-center justify-center font-sans overflow-hidden select-none">
+      <div dir="rtl" className="h-screen w-screen bg-[var(--main-color-bg)] text-[var(--text-primary)] flex items-center justify-center font-sans overflow-hidden select-none">
         <AuthModal />
       </div>
     );
   }
 
   return (
-    <div dir="rtl" className="h-screen w-screen bg-[var(--bg)] text-[var(--text-primary)] flex flex-col font-sans overflow-x-hidden overflow-y-hidden select-none transition-colors duration-200">
+    <div dir="rtl" className="h-screen w-screen bg-[var(--main-color-bg)] text-[var(--text-primary)] flex flex-col font-sans overflow-x-hidden overflow-y-hidden select-none transition-colors duration-200">
       <SplashLoader isLoading={false} />
 
       {/* Navigation Header */}

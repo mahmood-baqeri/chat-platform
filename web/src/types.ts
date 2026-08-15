@@ -37,12 +37,12 @@ export interface RolePermission {
 export interface User {
   id: number | string;
   phone: string;
-  username: string;
+  nationalCode: string;
+  personCode?: string;
   firstName: string;
   lastName: string;
   displayName: string;
   avatarUrl: string;
-  bio?: string;
   status: UserStatus;
   lastSeen: string;
   role: UserRole;

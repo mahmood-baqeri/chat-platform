@@ -1,8 +1,13 @@
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
 @import "tailwindcss";
 
-:root, :root.light {
+:root,
+:root.light {
   font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  --main-color: #1a3664;
+  --main-color-bg: #1a366478;
+
+
   --bg: #F8FAFC;
   --sidebar: #FFFFFF;
   --list: #F1F5F9;
@@ -11,11 +16,18 @@
   --text-secondary: #475569;
   --border: rgba(0, 0, 0, 0.08);
   --glass: rgba(255, 255, 255, 0.85);
+
+  --bg-chat-item-1: #e9ecf1;
+  --bg-chat-item-2: #F8FAFC;
+  --seen-check-icon: #15c9fa;
+  --seen-check-counter: #037392;
   color-scheme: light;
 }
 
 :root.dark {
   font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  --main-color: #1a3664;
+  --main-color-bg: #1a366478;
   --bg: #0F111A;
   --sidebar: #1A1D2B;
   --list: #141724;
@@ -24,6 +36,10 @@
   --text-secondary: #94a3b8;
   --border: rgba(255, 255, 255, 0.05);
   --glass: rgba(26, 29, 43, 0.8);
+  --bg-chat-item-1: #4f4f51;
+  --bg-chat-item-2: #1A1D2B;
+  --seen-check-icon: #f3f6f6;
+  --seen-check-counter: #131313;
   color-scheme: dark;
 }
 
@@ -62,9 +78,22 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
 
+.otpElement {}
+
+.otpElement>div {
+  justify-content: space-evenly !important;
+  flex-direction: row-reverse !important;
+}
+
+.otpElement input {
+  border-radius: 5px !important;
+  border: 1px solid !important;
+  font-size: 20px !important;
+}

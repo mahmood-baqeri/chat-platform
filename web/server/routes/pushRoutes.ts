@@ -1,3 +1,5 @@
+// web/server/routes/pushRoutes.ts
+
 import { Router } from "express";
 import {
   getPushConfig,
@@ -15,7 +17,11 @@ import { LogoPhoto } from "@/src/types.js";
 
 const router = Router();
 
-// Public route to get VAPID Public Key for client push subscriptions
+// ==========================================
+// Public Routes (بدون احراز هویت)
+// ==========================================
+
+// دریافت کلید عمومی VAPID برای ثبت اشتراک
 router.get("/push-public-key", (req, res) => {
   const config = getPushConfig();
   res.json({
@@ -24,24 +30,36 @@ router.get("/push-public-key", (req, res) => {
   });
 });
 
-// Get Push Settings
+// ==========================================
+// Admin Routes (با احراز هویت)
+// ==========================================
+
+// دریافت تنظیمات Push
 router.get("/admin/push-settings", (req, res) => {
   const config = getPushConfig();
   const subs = getPushSubscriptions();
   res.json({
     ...config,
     subscriptionCount: subs.length,
-    subscriptions: subs.map((s) => ({ id: s.id, userId: s.userId, createdAt: s.createdAt })),
+    subscriptions: subs.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      createdAt: s.createdAt
+    })),
   });
 });
 
-// Update Push Settings
+// بروزرسانی تنظیمات Push
 router.post("/admin/push-settings", (req, res) => {
   const config = updatePushConfig(req.body);
-  res.json({ message: "تنظیمات Push Notification با موفقیت ذخیره شد.", config });
+  res.json({
+    success: true,
+    message: "تنظیمات Push Notification با موفقیت ذخیره شد.",
+    config
+  });
 });
 
-// Generate new VAPID keys
+// تولید کلیدهای VAPID جدید
 router.post("/admin/push-generate-vapid", (req, res) => {
   try {
     const keys = generateNewVapidKeys();
@@ -52,57 +70,113 @@ router.post("/admin/push-generate-vapid", (req, res) => {
       vapidPrivateKey: keys.privateKey,
     });
   } catch (e: any) {
-    res.status(500).json({ success: false, error: e.message || "خطا در تولید کلید VAPID" });
+    res.status(500).json({
+      success: false,
+      error: e.message || "خطا در تولید کلید VAPID"
+    });
   }
 });
 
-// Subscribe browser/device
+// ==========================================
+// Client Subscription Routes
+// ==========================================
+
+// ثبت اشتراک مرورگر/دستگاه
 router.post("/subscribe", async (req, res) => {
   const { subscription, userId } = req.body;
+
   if (!subscription || !subscription.endpoint) {
-    return res.status(400).json({ success: false, error: "ساختار Push Subscription نامعتبر است." });
+    return res.status(400).json({
+      success: false,
+      error: "ساختار Push Subscription نامعتبر است."
+    });
   }
 
-  const count = await addPushSubscription(subscription, userId);
-  res.json({
-    success: true,
-    message: "اشتراک Push Notification با موفقیت ثبت گردید.",
-    totalSubscriptions: count,
-  });
+  try {
+    const count = await addPushSubscription(subscription, userId);
+    res.json({
+      success: true,
+      message: "اشتراک Push Notification با موفقیت ثبت گردید.",
+      totalSubscriptions: count,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || "خطا در ثبت اشتراک",
+    });
+  }
 });
 
-// Unsubscribe
+// لغو اشتراک
 router.delete("/subscribe", async (req, res) => {
   const { endpoint } = req.body;
+
   if (!endpoint) {
-    return res.status(400).json({ success: false, error: "آدرس Endpoint ارسال نشده است." });
+    return res.status(400).json({
+      success: false,
+      error: "آدرس Endpoint ارسال نشده است."
+    });
   }
 
-  const count = await removePushSubscription(endpoint);
-  res.json({ success: true, message: "اشتراک مرورگر با موفقیت حذف گردید.", totalSubscriptions: count });
+  try {
+    const count = await removePushSubscription(endpoint);
+    res.json({
+      success: true,
+      message: "اشتراک مرورگر با موفقیت حذف گردید.",
+      totalSubscriptions: count
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || "خطا در لغو اشتراک",
+    });
+  }
 });
 
-// Get push policy
+// ==========================================
+// Push Policy Routes
+// ==========================================
+
+// دریافت سیاست ارسال Push
 router.get("/admin/push-policy", (req, res) => {
   res.json({ policy: getPushPolicy() });
 });
 
-// Update push policy
+// بروزرسانی سیاست ارسال Push
 router.post("/admin/push-policy", async (req, res) => {
   const { policy } = req.body;
-  if (["always", "offline_only", "mentions_only", "direct_only", "disabled"].includes(policy)) {
-    setPushPolicy(policy);
-    try {
-      await dbExecute(`UPDATE system_settings SET push_policy = ? WHERE id = 1`, [policy]);
-    } catch (e) {}
-    return res.json({ success: true, message: "سیاست ارسال Push Notification با موفقیت به‌روزرسانی و ذخیره شد.", policy });
+
+  const validPolicies = ["always", "offline_only", "mentions_only", "direct_only", "disabled"];
+  if (!validPolicies.includes(policy)) {
+    return res.status(400).json({
+      success: false,
+      error: "سیاست انتخاب شده معتبر نیست."
+    });
   }
-  res.status(400).json({ success: false, error: "سیاست انتخاب شده معتبر نیست." });
+
+  setPushPolicy(policy);
+
+  try {
+    await dbExecute(`UPDATE system_settings SET push_policy = ? WHERE id = 1`, [policy]);
+  } catch (e) {
+    console.error("Error saving push policy to DB:", e);
+  }
+
+  res.json({
+    success: true,
+    message: "سیاست ارسال Push Notification با موفقیت به‌روزرسانی شد.",
+    policy
+  });
 });
 
-// Send Test Push
+// ==========================================
+// Test & Send Push Routes
+// ==========================================
+
+// ارسال Push تستی
 router.post("/admin/push-test", async (req, res) => {
   const { title, message, iconUrl, imageUrl, targetUser, link } = req.body;
+
   const subs = getPushSubscriptions();
 
   if (subs.length === 0) {
@@ -117,6 +191,13 @@ router.post("/admin/push-test", async (req, res) => {
     targets = subs.filter((s) => s.userId === targetUser || s.id === targetUser);
   }
 
+  if (targets.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "هیچ کاربری با این شناسه یافت نشد",
+    });
+  }
+
   try {
     const payload = {
       title: title || "تست واقعی Push Notification",
@@ -127,6 +208,7 @@ router.post("/admin/push-test", async (req, res) => {
     };
 
     const result = await sendNotificationToTargets(targets, payload);
+
     res.json({
       success: true,
       message: `اعلان Push آزمایشی با موفقیت به ${result.sentCount} دستگاه ارسال شد.${result.failCount > 0 ? ` (${result.failCount} خطا)` : ""}`,
@@ -134,7 +216,70 @@ router.post("/admin/push-test", async (req, res) => {
       failCount: result.failCount,
     });
   } catch (err: any) {
-    res.status(400).json({ success: false, error: err.message || "خطا در ارسال تست Push" });
+    res.status(400).json({
+      success: false,
+      error: err.message || "خطا در ارسال تست Push"
+    });
+  }
+});
+
+// ارسال Push به همه یا گروه خاص (ادمین)
+router.post("/admin/push-send", async (req, res) => {
+  const { targetType, targetId, title, message, link, iconUrl, imageUrl } = req.body;
+
+  if (!title || !message) {
+    return res.status(400).json({
+      success: false,
+      error: "عنوان و متن پیام الزامی است",
+    });
+  }
+
+  const subs = getPushSubscriptions();
+
+  if (subs.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "هیچ دستگاه فعال و مشترکی برای دریافت Push یافت نشد.",
+    });
+  }
+
+  let targets = [...subs];
+
+  if (targetType === "user" && targetId) {
+    targets = subs.filter((s) => s.userId === targetId);
+  } else if (targetType === "room" && targetId) {
+    // targets = subs.filter((s) => s.roomId === targetId);
+  }
+
+  if (targets.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "هیچ کاربری برای ارسال پیدا نشد",
+    });
+  }
+
+  try {
+    const payload = {
+      title,
+      body: message,
+      icon: iconUrl || LogoPhoto,
+      image: imageUrl || "",
+      url: link || "/",
+    };
+
+    const result = await sendNotificationToTargets(targets, payload);
+
+    res.json({
+      success: true,
+      message: `اعلان Push با موفقیت به ${result.sentCount} دستگاه ارسال شد.`,
+      sentCount: result.sentCount,
+      failCount: result.failCount,
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      error: err.message || "خطا در ارسال Push"
+    });
   }
 });
 

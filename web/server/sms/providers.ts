@@ -1,5 +1,10 @@
 import http from "http";
 import https from "https";
+import axios, { AxiosResponse } from "axios";
+
+// ============================================
+// TYPES & INTERFACES
+// ============================================
 
 export interface SmsConfig {
   provider: string;
@@ -24,11 +29,13 @@ export interface ISmsProvider {
   name: string;
   testConnection(config: SmsConfig): Promise<SmsSendResult>;
   sendSms(config: SmsConfig, mobile: string, messageText: string): Promise<SmsSendResult>;
+  sendVerificationCode(config: SmsConfig, mobile: string, code: string): Promise<SmsSendResult>;
 }
 
-/**
- * SMS.ir Provider Implementation using official REST API v1
- */
+// ============================================
+// SMS.ir PROVIDER (با کد شما)
+// ============================================
+
 export class SmsIrProvider implements ISmsProvider {
   name = "SMS.ir";
 
@@ -41,27 +48,25 @@ export class SmsIrProvider implements ISmsProvider {
     }
 
     try {
-      // Test credentials using SMS.ir GET /v1/credit endpoint
-      const response = await fetch("https://api.sms.ir/v1/credit", {
-        method: "GET",
+      const response = await axios.get("https://api.sms.ir/v1/credit", {
         headers: {
           "X-API-KEY": config.apiKey,
           "Accept": "application/json",
         },
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.status === 1) {
+      if (response.status === 200 && data.status === 1) {
         return {
           success: true,
-          message: `ارتباط با پنل SMS.ir با موفقیت برقرار شد. میزان اعتبار موجود: ${data.data ?? "فعال"} ریال`,
+          message: `ارتباط با پنل SMS.ir با موفقیت برقرار شد.`,
           details: data,
         };
       } else {
         return {
           success: false,
-          message: `خطای سامانه SMS.ir (${data.status || response.status}): ${data.message || "کلید API نامعتبر است."}`,
+          message: `خطای سامانه SMS.ir: ${data.message || "کلید API نامعتبر است."}`,
           details: data,
         };
       }
@@ -73,6 +78,7 @@ export class SmsIrProvider implements ISmsProvider {
     }
   }
 
+  // متد ارسال پیامک معمولی
   async sendSms(config: SmsConfig, mobile: string, messageText: string): Promise<SmsSendResult> {
     if (!config.apiKey) {
       return {
@@ -90,45 +96,6 @@ export class SmsIrProvider implements ISmsProvider {
     }
 
     try {
-      // If templateId is provided, use SMS.ir Verify endpoint
-      if (config.templateId && config.templateId.trim()) {
-        const verifyBody = {
-          mobile: cleanMobile,
-          templateId: Number(config.templateId.trim()),
-          parameters: [
-            { name: "Code", value: messageText },
-            { name: "Text", value: messageText }
-          ]
-        };
-
-        const response = await fetch("https://api.sms.ir/v1/send/verify", {
-          method: "POST",
-          headers: {
-            "X-API-KEY": config.apiKey,
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify(verifyBody)
-        });
-
-        const data = await response.json();
-        if (response.ok && (data.status === 1 || data.status === 200)) {
-          return {
-            success: true,
-            message: `پیامک الگویی با موفقیت توسط SMS.ir به شماره ${cleanMobile} ارسال شد. شناسه: ${data.data?.messageId || "ارسال شد"}`,
-            messageId: data.data?.messageId,
-            details: data
-          };
-        } else {
-          return {
-            success: false,
-            message: `خطا در ارسال پیامک الگویی SMS.ir: ${data.message || JSON.stringify(data)}`,
-            details: data
-          };
-        }
-      }
-
-      // Standard Bulk/Single SMS sending via SMS.ir /v1/send/bulk
       const bulkBody = {
         lineNumber: config.senderNumber ? config.senderNumber.trim() : "30000000",
         messageText: messageText,
@@ -136,19 +103,17 @@ export class SmsIrProvider implements ISmsProvider {
         sendDateTime: null
       };
 
-      const response = await fetch("https://api.sms.ir/v1/send/bulk", {
-        method: "POST",
+      const response = await axios.post("https://api.sms.ir/v1/send/bulk", bulkBody, {
         headers: {
           "X-API-KEY": config.apiKey,
           "Content-Type": "application/json",
           "Accept": "application/json"
-        },
-        body: JSON.stringify(bulkBody)
+        }
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && (data.status === 1 || data.status === 200)) {
+      if (response.status === 200 && (data.status === 1 || data.status === 200)) {
         return {
           success: true,
           message: `پیامک با موفقیت توسط SMS.ir به شماره ${cleanMobile} ارسال شد.`,
@@ -158,7 +123,7 @@ export class SmsIrProvider implements ISmsProvider {
       } else {
         return {
           success: false,
-          message: `خطای ارسال در SMS.ir (${data.status}): ${data.message || "اطلاعات فرستنده یا متن پیام نامعتبر است."}`,
+          message: `خطای ارسال در SMS.ir: ${data.message || "اطلاعات فرستنده یا متن پیام نامعتبر است."}`,
           details: data
         };
       }
@@ -169,11 +134,76 @@ export class SmsIrProvider implements ISmsProvider {
       };
     }
   }
+
+  // متد ارسال کد تایید (با استفاده از کد شما)
+  async sendVerificationCode(config: SmsConfig, mobile: string, code: string): Promise<SmsSendResult> {
+    if (!config.apiKey) {
+      return {
+        success: false,
+        message: "کلید API برای سامانه SMS.ir تنظیم نشده است.",
+      };
+    }
+
+    if (!config.templateId) {
+      return {
+        success: false,
+        message: "Template ID برای ارسال کد تایید تنظیم نشده است.",
+      };
+    }
+
+    const cleanMobile = mobile.trim();
+    if (!cleanMobile) {
+      return {
+        success: false,
+        message: "شماره گیرنده وارد نشده است.",
+      };
+    }
+
+    try {
+      const data = JSON.stringify({
+        mobile: cleanMobile,
+        templateId: config.templateId,
+        parameters: [
+          { name: 'code', value: code }
+        ]
+      });
+
+      const response = await axios.post("https://api.sms.ir/v1/send/verify", data, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/plain',
+          'x-api-key': config.apiKey
+        }
+      });
+
+      if (response.status === 200 && (response.data?.status === 1 || response.data?.status === 200)) {
+        return {
+          success: true,
+          message: `کد تایید با موفقیت توسط SMS.ir به شماره ${cleanMobile} ارسال شد.`,
+          messageId: response.data?.data?.messageId || "OK",
+          details: response.data
+        };
+      } else {
+        return {
+          success: false,
+          message: `خطا در ارسال کد تایید SMS.ir: ${response.data?.message || "خطای ناشناخته"}`,
+          details: response.data
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `خطا در ارتباط با SMS.ir: ${err.response?.data?.message || err.message || "مشکل شبکه"}`,
+        details: err.response?.data
+      };
+    }
+  }
 }
 
-/**
- * Kavenegar Provider Implementation
- */
+// ============================================
+// KAVENEGAR PROVIDER
+// ============================================
+
 export class KavenegarProvider implements ISmsProvider {
   name = "کاوه نگار";
 
@@ -182,12 +212,12 @@ export class KavenegarProvider implements ISmsProvider {
       return { success: false, message: "کلید API کاوه نگار وارد نشده است." };
     }
     try {
-      const res = await fetch(`https://api.kavenegar.com/v1/${config.apiKey}/account/info.json`);
-      const data = await res.json();
-      if (res.ok && data.return?.status === 200) {
+      const response = await axios.get(`https://api.kavenegar.com/v1/${config.apiKey}/account/info.json`);
+      const data = response.data;
+      if (response.status === 200 && data.return?.status === 200) {
         return {
           success: true,
-          message: `ارتباط با کاوه نگار برقرار شد. اعتبار: ${data.entries?.remaincredit || 0} ریال`,
+          message: `ارتباط با کاوه نگار برقرار شد.`,
           details: data,
         };
       }
@@ -204,9 +234,9 @@ export class KavenegarProvider implements ISmsProvider {
     if (!config.apiKey) return { success: false, message: "کلید API تنظیم نشده است." };
     try {
       const url = `https://api.kavenegar.com/v1/${config.apiKey}/sms/send.json?receptor=${encodeURIComponent(mobile)}&message=${encodeURIComponent(messageText)}&sender=${encodeURIComponent(config.senderNumber || "")}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (res.ok && data.return?.status === 200) {
+      const response = await axios.get(url);
+      const data = response.data;
+      if (response.status === 200 && data.return?.status === 200) {
         return {
           success: true,
           message: `پیامک کاوه نگار با موفقیت به ${mobile} ارسال شد.`,
@@ -218,11 +248,18 @@ export class KavenegarProvider implements ISmsProvider {
       return { success: false, message: `خطای ارتباط کاوه نگار: ${err.message}` };
     }
   }
+
+  async sendVerificationCode(config: SmsConfig, mobile: string, code: string): Promise<SmsSendResult> {
+    // کاوه نگار متد مجزا برای کد تایید ندارد، از همان sendSms استفاده می‌کنیم
+    const messageText = `کد تایید شما: ${code}`;
+    return this.sendSms(config, mobile, messageText);
+  }
 }
 
-/**
- * Modular SMS Provider Registry Factory
- */
+// ============================================
+// PROVIDER REGISTRY
+// ============================================
+
 export class SmsProviderRegistry {
   private static providers: Record<string, ISmsProvider> = {
     smsir: new SmsIrProvider(),

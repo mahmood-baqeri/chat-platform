@@ -1,3 +1,5 @@
+// web/server/services/pushService.ts
+
 import webPush from "web-push";
 import { dbQuery, dbExecute } from "../db/index.js";
 import { PushSubscriptionItem, PushConfig } from "../models/types.js";
@@ -42,7 +44,7 @@ async function syncPushFromDB() {
               createdAt: r.created_at,
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   } catch (e) {
@@ -124,7 +126,7 @@ export async function removePushSubscription(endpoint: string) {
 
   try {
     await dbExecute(`DELETE FROM push_subscriptions WHERE endpoint = ?`, [endpoint]);
-  } catch (e) {}
+  } catch (e) { }
 
   return pushSubscriptions.length;
 }
@@ -147,7 +149,7 @@ export async function sendNotificationToTargets(targets: PushSubscriptionItem[],
     } catch (err: any) {
       failCount++;
       if (err.statusCode === 410 || err.statusCode === 404) {
-        removePushSubscription(item.subscription?.endpoint);
+        await removePushSubscription(item.subscription?.endpoint);
       }
     }
   }

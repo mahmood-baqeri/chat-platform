@@ -16,7 +16,6 @@ import chatRoutes from "./routes/chatRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import smsRoutes from "./routes/smsRoutes.js";
 import dbRoutes from "./routes/dbRoutes.js";
 import pushRoutes from "./routes/pushRoutes.js";
 
@@ -47,7 +46,6 @@ export async function startServer() {
   app.use("/api", contactRoutes);
   app.use("/api", uploadRoutes);
   app.use("/api", adminRoutes);
-  app.use("/api", smsRoutes);
   app.use("/api", dbRoutes);
   app.use("/api", pushRoutes);
 

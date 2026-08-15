@@ -1,3 +1,5 @@
+// web/server/routes/chatRoutes.ts
+
 import express, { Request, Response } from "express";
 import {
   chats,
@@ -12,8 +14,6 @@ import {
   dbInstance,
   computeMessageReactions,
   formatMessageFromDB,
-  pushSubscriptions,
-  pushPolicy
 } from "../store/dataStore.js";
 import {
   Chat,
@@ -29,15 +29,46 @@ import { dbQuery, dbExecute } from "../db/index.js";
 import { sendRoomWSEvent, sendChatMembersWSEvent, broadcastWSEvent } from "../websocket/wsServer.js";
 import { saveBase64ToFile, generateUUIDv4 } from "../config.js";
 import webPush from "web-push";
-import { getPushConfig } from "../services/pushService.js";
 
 const router = express.Router();
 
+// ==========================================
+// PUSH SUBSCRIPTIONS (در حافظه)
+// ==========================================
+interface PushSubscriptionItem {
+  id: number | string;
+  userId: string;
+  subscription: any;
+  createdAt: string;
+}
+
+let pushSubscriptions: PushSubscriptionItem[] = [];
+let pushPolicy: "always" | "offline_only" | "mentions_only" | "direct_only" | "disabled" = "always";
+
+// ==========================================
+// PUSH CONFIG
+// ==========================================
+let pushConfig = {
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || "",
+  isActive: true,
+};
+
+// ==========================================
+// GET PUSH CONFIG
+// ==========================================
+function getPushConfig() {
+  return pushConfig;
+}
+
+// ==========================================
+// ENRICH MESSAGE
+// ==========================================
 export function enrichMessage(m: Message): Message {
   if (!m) return m;
   const senderUser = users.find(u => String(u.id) === String(m.senderId));
   const senderName = m.senderName || (senderUser
-    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${m.senderId}`
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || `کاربر ${m.senderId}`
     : `کاربر ${m.senderId}`);
   const senderAvatar = m.senderAvatar || senderUser?.avatarUrl || AvatarPhoto;
   return {
@@ -47,83 +78,118 @@ export function enrichMessage(m: Message): Message {
   };
 }
 
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-//  Send Push Notification
-async function sendPushNotificationForMessage(chatId: string, senderId: string, content: string, mentions: string[] = [], msgType: string = "text") {
-  const pushConfig = getPushConfig();
-  if (!pushConfig.isActive || pushPolicy === "disabled") return;
-
-  const chat = chats.find(c => c.id === chatId);
-  if (!chat) return;
-
-  if (pushPolicy === "direct_only" && chat.type !== "direct") return;
-
-  const sender = users.find(u => String(u.id) === String(senderId));
-  const senderName = sender ? sender.displayName : "فرستنده";
-
-  let targetUserIds: (number | string)[] = [];
-  const memberUserIds = (chat.members || []).map(m => m.userId).filter(uid => String(uid) !== String(senderId));
-
-  if (pushPolicy === "always" || pushPolicy === "direct_only") {
-    targetUserIds = memberUserIds;
-  } else if (pushPolicy === "offline_only") {
-    targetUserIds = memberUserIds.filter(uid => {
-      const u = users.find(usr => String(usr.id) === String(uid));
-      return !u || u.status !== "online";
-    });
-  } else if (pushPolicy === "mentions_only") {
-    targetUserIds = memberUserIds.filter(uid => {
-      const u = users.find(usr => String(usr.id) === String(uid));
-      if (!u) return false;
-      return mentions.map(String).includes(String(uid)) || (u.username && content.includes(`@${u.username}`));
-    });
-  }
-
-  if (targetUserIds.length === 0) return;
-
-  const targetStrIds = targetUserIds.map(String);
-  const targets = pushSubscriptions.filter(s => targetStrIds.includes(String(s.userId || "")));
-  if (targets.length === 0) return;
-
+// ==========================================
+// SEND PUSH NOTIFICATION FOR MESSAGE
+// ==========================================
+async function sendPushNotificationForMessage(
+  chatId: string,
+  senderId: string,
+  content: string,
+  mentions: string[] = [],
+  msgType: string = "text"
+) {
   try {
+    // 1. بررسی فعال بودن پوش
+    if (!pushConfig.isActive || pushPolicy === "disabled") {
+      return;
+    }
+
+    const chat = chats.find(c => c.id === chatId);
+    if (!chat) return;
+
+    // 2. بررسی سیاست ارسال
+    if (pushPolicy === "direct_only" && chat.type !== "direct") {
+      return;
+    }
+
+    const sender = users.find(u => String(u.id) === String(senderId));
+    const senderName = sender ? sender.displayName : "فرستنده";
+
+    // 3. تعیین کاربران هدف
+    let targetUserIds: (number | string)[] = [];
+    const memberUserIds = (chat.members || [])
+      .map(m => m.userId)
+      .filter(uid => String(uid) !== String(senderId));
+
+    if (pushPolicy === "always" || pushPolicy === "direct_only") {
+      targetUserIds = memberUserIds;
+    } else if (pushPolicy === "offline_only") {
+      targetUserIds = memberUserIds.filter(uid => {
+        const u = users.find(usr => String(usr.id) === String(uid));
+        return !u || u.status !== "online";
+      });
+    } else if (pushPolicy === "mentions_only") {
+      targetUserIds = memberUserIds.filter(uid => {
+        const u = users.find(usr => String(usr.id) === String(uid));
+        if (!u) return false;
+        const mentionIds = mentions.map(String);
+        return mentionIds.includes(String(uid)) ||
+          (u.personCode && content.includes(u.personCode));
+      });
+    }
+
+    if (targetUserIds.length === 0) return;
+
+    // 4. گرفتن اشتراک‌های فعال
+    const targetStrIds = targetUserIds.map(String);
+    const targets = pushSubscriptions.filter(s =>
+      targetStrIds.includes(String(s.userId || ""))
+    );
+
+    if (targets.length === 0) return;
+
+    // 5. تنظیم VAPID
+    if (!pushConfig.vapidPublicKey || !pushConfig.vapidPrivateKey) {
+      return;
+    }
+
     webPush.setVapidDetails(
       "mailto:admin@example.com",
-      pushConfig.vapidPublicKey ?? "",
-      pushConfig.vapidPrivateKey ?? ""
+      pushConfig.vapidPublicKey,
+      pushConfig.vapidPrivateKey
     );
-  } catch (err) {
-    return;
-  }
 
-  const payload = JSON.stringify({
-    title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
-    body: msgType === "text" ? content : `[${msgType === "image" ? "تصویر" : msgType === "video" ? "ویدیو" : msgType === "audio" ? "صوتی" : "فایل"}] ${content}`,
-    icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
-    url: `/?chatId=${chatId}`,
-  });
+    // 6. ساخت پیام
+    let body = content;
+    if (msgType === "image") body = "📷 تصویر";
+    else if (msgType === "video") body = "🎬 ویدیو";
+    else if (msgType === "audio") body = "🎵 صوتی";
+    else if (msgType === "voice") body = "🎙️ پیام صوتی";
+    else if (msgType === "document") body = "📄 فایل";
+    else if (msgType === "sticker") body = "🎨 استیکر";
+    else if (msgType === "location") body = "📍 موقعیت مکانی";
+    else if (msgType === "contact") body = "👤 تماس";
 
-  for (const item of targets) {
-    try {
-      await webPush.sendNotification(item.subscription, payload);
-    } catch (err: any) {
-      if (err.statusCode === 410 || err.statusCode === 404) {
-        const removeIdx = pushSubscriptions.findIndex(s => s.id === item.id);
-        if (removeIdx >= 0) pushSubscriptions.splice(removeIdx, 1);
+    const payload = JSON.stringify({
+      title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
+      body: body || content,
+      icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
+      url: `/?chatId=${chatId}`,
+      chatId: chatId,
+    });
+
+    // 7. ارسال به همه دستگاه‌ها
+    for (const item of targets) {
+      try {
+        await webPush.sendNotification(item.subscription, payload);
+      } catch (err: any) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          const removeIdx = pushSubscriptions.findIndex(s => s.id === item.id);
+          if (removeIdx >= 0) {
+            pushSubscriptions.splice(removeIdx, 1);
+          }
+        }
       }
     }
+
+  } catch (error) {
+    // خطا را نادیده بگیر
   }
 }
 
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// GET User Chats
+// ==========================================
+// GET USER CHATS
+// ==========================================
 router.get("/chats", (req: Request, res: Response) => {
   const currentUserId = getUserIdFromReq(req);
   if (!currentUserId) {
@@ -143,12 +209,9 @@ router.get("/chats", (req: Request, res: Response) => {
   res.json(userChats);
 });
 
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// GET Chat Detail
+// ==========================================
+// GET CHAT DETAIL
+// ==========================================
 router.get("/chats/:chatId", (req: Request, res: Response) => {
   const { chatId } = req.params;
   const userId = getUserIdFromReq(req);
@@ -174,12 +237,9 @@ router.get("/chats/:chatId", (req: Request, res: Response) => {
   res.json(formatChatForUser(targetChat, String(userId)));
 });
 
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// CREATE Chat Room
+// ==========================================
+// CREATE CHAT
+// ==========================================
 router.post("/chats", async (req: Request, res: Response) => {
   const currentUserId = getUserIdFromReq(req);
   const { type, title, description, avatarUrl, username, isPrivate, members, ownerId } = req.body;
@@ -235,13 +295,6 @@ router.post("/chats", async (req: Request, res: Response) => {
     rawMembers.unshift({ userId: currentUserId, role: "owner", joinedAt: new Date().toISOString(), isMuted: false });
   }
 
-
-  //################################################
-  //################################################
-  //################################################
-  //################################################
-  //################################################
-  // Deduplicate members by string userId
   const uniqueMembersMap = new Map<string, ChatMember>();
   for (const rm of rawMembers) {
     const uidStr = String(rm.userId);
@@ -306,13 +359,9 @@ router.post("/chats", async (req: Request, res: Response) => {
   res.json(formatChatForUser(newChat, String(currentUserId || "")));
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// UPDATE Chat Room
+// ==========================================
+// UPDATE CHAT
+// ==========================================
 router.put("/chats/:chatId", async (req: Request, res: Response) => {
   const { chatId } = req.params;
   const currentUserId = getUserIdFromReq(req);
@@ -347,13 +396,9 @@ router.put("/chats/:chatId", async (req: Request, res: Response) => {
   res.json(chat);
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// GET Messages in Chat Room with Full DB Pagination
+// ==========================================
+// GET MESSAGES
+// ==========================================
 router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const { chatId } = req.params;
   const currentUserId = getUserIdFromReq(req);
@@ -382,7 +427,6 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const aroundId = req.query.aroundId as string;
   const userId = req.query.userId as string;
 
-  // Filter messages for current room
   let chatMessages = messages.filter(m =>
     String(m.chatId) === String(actualChatId) ||
     String(m.chatId) === String(chatId) ||
@@ -460,7 +504,6 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
     }
   }
 
-  // Initial load logic: check for unread message or return latest messages
   let unreadMsgId: string | null = null;
   if (userId) {
     const unreadMsg = chatMessages.find(m =>
@@ -501,13 +544,9 @@ router.get("/chats/:chatId/messages", async (req: Request, res: Response) => {
   });
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// POST New Message
+// ==========================================
+// POST NEW MESSAGE
+// ==========================================
 router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
   const { chatId } = req.params;
   const currentUserId = getUserIdFromReq(req);
@@ -567,7 +606,7 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
 
   const senderUser = users.find(u => String(u.id) === String(actualSenderId));
   const senderName = senderUser
-    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${actualSenderId}`
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || `کاربر ${actualSenderId}`
     : `کاربر ${actualSenderId}`;
   const senderAvatar = senderUser?.avatarUrl || AvatarPhoto;
 
@@ -612,17 +651,18 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
 
   const enriched = enrichMessage(newMsg);
   sendRoomWSEvent(chatId, "message:new", enriched);
-  sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type);
+
+  // ==========================================
+  // ارسال پوش نوتیفیکیشن
+  // ==========================================
+  await sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type);
+
   res.json(enriched);
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// Edit Message
+// ==========================================
+// EDIT MESSAGE
+// ==========================================
 router.put("/messages/:messageId", async (req: Request, res: Response) => {
   if (!systemSettings.editMessageEnabled) {
     return res.status(403).json({ error: "ویرایش پیام در حال حاضر غیرفعال است" });
@@ -630,7 +670,7 @@ router.put("/messages/:messageId", async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { content } = req.body;
 
-  const msg = messages.find(m => m.id === messageId);
+  const msg = messages.find(m => m.id == messageId);
   if (!msg) return res.status(404).json({ error: "پیام یافت نشد" });
 
   if (!msg.editHistory) msg.editHistory = [];
@@ -652,13 +692,9 @@ router.put("/messages/:messageId", async (req: Request, res: Response) => {
   res.json(msg);
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// Delete Message
+// ==========================================
+// DELETE MESSAGE
+// ==========================================
 router.delete("/messages/:messageId", async (req: Request, res: Response) => {
   if (!systemSettings.deleteMessageEnabled) {
     return res.status(403).json({ error: "حذف پیام در حال حاضر غیرفعال است" });
@@ -678,13 +714,9 @@ router.delete("/messages/:messageId", async (req: Request, res: Response) => {
   res.json({ message: "پیام با موفقیت حذف شد" });
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// Read Receipts
+// ==========================================
+// READ RECEIPTS
+// ==========================================
 router.post("/chats/:chatId/read", async (req: Request, res: Response) => {
   const { chatId } = req.params;
   const { userId, messageIds } = req.body;
@@ -768,13 +800,9 @@ router.post("/chats/:chatId/read", async (req: Request, res: Response) => {
   res.json({ success: true, newSeensCount, unreadCount: remainingUnread });
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// GET Message Reactions
+// ==========================================
+// GET MESSAGE REACTIONS
+// ==========================================
 router.get("/messages/:messageId/reactions", (req: Request, res: Response) => {
   const { messageId } = req.params;
   const rxList = messageReactions.filter(r => String(r.messageId) === String(messageId));
@@ -795,13 +823,9 @@ router.get("/messages/:messageId/reactions", (req: Request, res: Response) => {
   res.json({ messageId, totalReactions: rxList.length, reactions: aggregated, list: detailed });
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// POST Toggle Reaction
+// ==========================================
+// POST TOGGLE REACTION
+// ==========================================
 router.post("/messages/:messageId/reaction", async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { emoji, userId } = req.body;
@@ -864,13 +888,9 @@ router.post("/messages/:messageId/reaction", async (req: Request, res: Response)
   res.json(msg);
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// Pin Message
+// ==========================================
+// PIN MESSAGE
+// ==========================================
 router.post("/messages/:messageId/pin", async (req: Request, res: Response) => {
   if (!systemSettings.pinEnabled) {
     return res.status(403).json({ error: "پین کردن پیام غیرفعال است" });
@@ -890,13 +910,9 @@ router.post("/messages/:messageId/pin", async (req: Request, res: Response) => {
   res.json(msg);
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// Global Search
+// ==========================================
+// GLOBAL SEARCH
+// ==========================================
 router.get("/search", (req: Request, res: Response) => {
   const query = (req.query.q as string || "").toLowerCase();
   if (!query) {
@@ -905,7 +921,6 @@ router.get("/search", (req: Request, res: Response) => {
 
   const matchedUsers = users.filter(u =>
     u.displayName.toLowerCase().includes(query) ||
-    u.username.toLowerCase().includes(query) ||
     u.phone.includes(query)
   );
 
@@ -926,13 +941,9 @@ router.get("/search", (req: Request, res: Response) => {
   });
 });
 
-
-//################################################
-//################################################
-//################################################
-//################################################
-//################################################
-// FastAPI Proxies
+// ==========================================
+// FASTAPI PROXIES
+// ==========================================
 router.get("/fastapi/realtime/stats", (req: Request, res: Response) => {
   res.json({
     status: "online",

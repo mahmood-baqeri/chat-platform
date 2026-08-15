@@ -63,7 +63,14 @@ export let deletedMessages: Message[] = [];
 export let uploadedFiles: Attachment[] = [];
 export let contacts: ContactRecord[] = [];
 export let auditLogs: AuditLog[] = [];
-export let otpStore: Record<string, { code: string; expiresAt: number }> = {};
+export const otpStore: Record<string, {
+  code: string;
+  expiresAt: number;
+  userId?: number | string;
+  phone?: string;
+  nationalCode?: string;
+  personCode?: string;
+}> = {};
 export let pushSubscriptions: PushSubItem[] = [];
 export let pushPolicy: "always" | "offline_only" | "mentions_only" | "direct_only" | "disabled" = "always";
 
@@ -155,14 +162,14 @@ export function formatMessageFromDB(m: any): Message {
     if (m.attachments) {
       attachments = typeof m.attachments === "string" ? JSON.parse(m.attachments) : m.attachments;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   let forwardedFrom = undefined;
   try {
     if (m.forwarded_from) {
       forwardedFrom = typeof m.forwarded_from === "string" ? JSON.parse(m.forwarded_from) : m.forwarded_from;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const seenRecords = messageSeens.filter(s => String(s.messageId) === String(m.id));
   const seenBy = seenRecords.map(s => {
@@ -177,7 +184,7 @@ export function formatMessageFromDB(m: any): Message {
 
   const senderUser = users.find(usr => String(usr.id) === String(m.sender_id || m.senderId));
   const senderName = m.sender_name || m.senderName || (senderUser
-    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || senderUser.username || `کاربر ${m.sender_id || m.senderId}`
+    ? senderUser.displayName || `${senderUser.firstName || ""} ${senderUser.lastName || ""}`.trim() || `کاربر ${m.sender_id || m.senderId}`
     : `کاربر ${m.sender_id || m.senderId}`);
   const senderAvatar = m.sender_avatar || m.senderAvatar || senderUser?.avatarUrl || AvatarPhoto;
 
@@ -398,7 +405,8 @@ export async function loadDataFromDB() {
       users = dbUsers.map((u: any) => ({
         id: u.id,
         phone: u.phone,
-        username: u.username,
+        nationalCode: u.nationalCode,
+        personCode: u.personCode,
         firstName: u.first_name || "",
         lastName: u.last_name || "",
         displayName: u.display_name,
@@ -506,7 +514,7 @@ export async function loadDataFromDB() {
           createdAt: c.created_at
         }));
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Forbidden Words
     const dbForbidden = await dbQuery("SELECT * FROM forbidden_words");
@@ -527,7 +535,7 @@ export async function loadDataFromDB() {
         let sub = {};
         try {
           sub = typeof s.subscription_json === "string" ? JSON.parse(s.subscription_json) : s.subscription_json;
-        } catch (e) {}
+        } catch (e) { }
         return {
           id: s.id,
           userId: s.user_id,

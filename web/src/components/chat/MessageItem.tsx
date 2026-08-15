@@ -143,7 +143,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
     if (list.length === 0) return null;
 
     return (
-      <div className="mt-2 space-y-2">
+      <div className="space-y-2">
         {list.map((att) => {
           const isAudio =
             att.type === "audio" ||
@@ -392,8 +392,8 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
         {/* Bubble Box */}
         <div
           className={`rounded-2xl p-3.5 shadow-sm text-right text-xs leading-relaxed transition-all relative ${isMe
-            ? "bg-[#2563EB] text-white rounded-br-xs shadow-[0_2px_5px_rgba(0,0,0,0.2)]"
-            : "bg-[var(--sidebar)] text-[var(--text-primary)] rounded-bl-xs border border-[var(--border)] shadow-[0_2px_5px_rgba(0,0,0,0.1)]"
+            ? "bg-[var(--bg-chat-item-1)] text-white rounded-br-xs shadow-[0_2px_5px_rgba(0,0,0,0.2)]"
+            : "bg-[var(--bg-chat-item-2)] text-[var(--text-primary)] rounded-bl-xs border border-[var(--border)] shadow-[0_2px_5px_rgba(0,0,0,0.1)]"
             }`}
         >
           {/* Reply Quote Banner */}
@@ -401,13 +401,13 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
             <div
               onClick={() => jumpToMessage(String(message.replyToMessageId || message.replyToMessage!.id))}
               className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${isMe
-                ? "bg-black/20 border-white/60 text-blue-100"
-                : "bg-black/20 border-blue-400 text-slate-300"
+                ? "bg-black/50 border-white/60 text-blue-100"
+                : "bg-black/50 border-blue-400 text-slate-300"
                 }`}
             >
-              <p className="font-bold text-[10px] text-blue-300 mb-0.5">
+              {/* <p className="font-bold text-[10px] text-blue-300 mb-0.5">
                 {message.replyToMessage.senderName}
-              </p>
+              </p> */}
               <p className="truncate opacity-90">{message.replyToMessage.content}</p>
             </div>
           )}
@@ -437,7 +437,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
           {/* Footer Metadata (Time & Ticks & Seen Count) */}
           <div className="flex items-center justify-end gap-1.5 mt-2 text-[10px] opacity-80">
             {message.isEdited && <span className="italic">(ویرایش شده)</span>}
-            <span className="font-mono">{formatTime(message.createdAt)}</span>
+            <span className="whitespace-pre-wrap break-words text-[var(--text-primary)] font-normal">{formatTime(message.createdAt)}</span>
 
             {isMe && (
               <button
@@ -446,17 +446,17 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
                 }}
                 className={`inline-flex items-center gap-1 rounded px-1 transition-colors ${seenCount > 0 ? "hover:bg-white/20 cursor-pointer" : "cursor-default"
                   }`}
-                title={seenCount > 0 ? `مشاهده لیست خوانندگان (${seenCount} نفر)` : undefined}
+                title={seenCount > 0 ? `مشاهده لیست  (${seenCount} نفر)` : undefined}
               >
                 {message.status === "seen" ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-cyan-200" />
+                  <CheckCheck className="w-3.5 h-3.5 text-[var(--seen-check-icon)]" />
                 ) : message.status === "delivered" ? (
-                  <CheckCheck className="w-3.5 h-3.5 opacity-70" />
+                  <CheckCheck className="w-3.5 h-3.5 opacity-70 text-[var(--seen-check-icon)]" />
                 ) : (
-                  <Check className="w-3.5 h-3.5 opacity-70" />
+                  <Check className="w-3.5 h-3.5 opacity-70 text-[var(--seen-check-icon)]" />
                 )}
                 {seenCount > 0 && (
-                  <span className="font-mono text-[9px] bg-cyan-400/20 text-cyan-100 px-1 rounded-md font-bold">
+                  <span className="font-mono text-[9px]  text-cyan-100 px-1 rounded-md font-bold  bg-[var(--seen-check-counter)]">
                     {seenCount}
                   </span>
                 )}

@@ -18,8 +18,13 @@ import {
 import { saveBase64ToFile } from "../config.js";
 import { dbExecute } from "../db/index.js";
 import { broadcastWSEvent } from "../websocket/wsServer.js";
+import { sendVerificationCode } from "../sms/smsService.js";
 
 const router = express.Router();
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
 
 export function getUserIdFromReq(req: Request): string | null {
   const authHeader = req.headers.authorization;
@@ -74,116 +79,233 @@ export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
         const displayName =
           targetUser.displayName ||
           `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() ||
-          targetUser.username ||
+          targetUser.personCode ||
           chat.title;
         formatted = {
           ...formatted,
           title: displayName,
           avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
-          username: targetUser.username || chat.username,
+          username: targetUser.personCode || chat.username,
         };
       }
     }
   }
 
+
+
   return formatted;
 }
 
-// Health Check
+// ============================================
+// HEALTH CHECK
+// ============================================
 router.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Send OTP
-router.post("/auth/otp/send", (req: Request, res: Response) => {
-  const { phone } = req.body;
-  if (!phone) {
-    return res.status(400).json({ error: "شماره تلفن الزامی است" });
-  }
+// ============================================
+// 1. SEND OTP (بدون ساخت کاربر جدید)
+// ============================================
+router.post("/auth/otp/send", async (req: Request, res: Response) => {
+  try {
+    const { identifier } = req.body;
 
-  const code = "123456";
-  otpStore[phone] = {
-    code,
-    expiresAt: Date.now() + 5 * 60 * 1000
-  };
-
-  auditLogs.unshift({
-    id: "log-" + Date.now(),
-    actorName: phone,
-    action: "OTP_REQUESTED",
-    details: `کد یکبارمصرف ارسال شد: ${code}`,
-    timestamp: new Date().toISOString(),
-    level: "info"
-  });
-
-  res.json({
-    message: "کد تأیید برای شما ارسال شد",
-    otp: systemSettings.otpEnabled ? code : "123456",
-    phone
-  });
-});
-
-// Verify OTP
-router.post("/auth/otp/verify", (req: Request, res: Response) => {
-  const { phone, code } = req.body;
-  if (!phone || !code) {
-    return res.status(400).json({ error: "شماره تلفن و کد تأیید الزامی است" });
-  }
-
-  if (systemSettings.otpEnabled && code !== "123456") {
-    const stored = otpStore[phone];
-    if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
-      return res.status(400).json({ error: "کد تأیید اشتباه یا منقضی شده است" });
+    // 1. اعتبارسنجی
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        error: "شناسه (شماره موبایل / کد پرسنلی / کد ملی) الزامی است"
+      });
     }
-  }
 
-  let user = users.find(u => u.phone === phone);
-  if (!user) {
-    if (!systemSettings.registrationEnabled) {
-      return res.status(403).json({ error: "ثبت‌نام کاربران جدید در حال حاضر غیرفعال است" });
+    // 2. جستجوی کاربر با identifier در هر سه فیلد
+    const user = users.find(u =>
+      u.phone === identifier ||
+      u.nationalCode === identifier ||
+      u.personCode === identifier
+    );
+
+    // 3. اگر کاربر وجود نداشت، خطا برگردان (نه ساخت کاربر جدید!)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "کاربری با این شناسه یافت نشد"
+      });
     }
-    const id = users.length > 0 ? Math.max(...users.map(u => Number(u.id) || 0)) + 1 : 1;
-    const uname = "user_" + Math.floor(1000 + Math.random() * 9000);
-    user = {
-      id,
-      phone,
-      username: uname,
-      firstName: "کاربر",
-      lastName: "جدید",
-      displayName: `کاربر ${uname}`,
-      avatarUrl: AvatarPhoto,
-      bio: "کاربر جدید پلتفرم چت",
-      status: "online",
-      lastSeen: "هم‌اکنون",
-      role: "user",
-      isBanned: false,
-      isMuted: false,
-      createdAt: new Date().toISOString()
+
+    // 4. بررسی مسدود بودن کاربر
+    if (user.isBanned) {
+      return res.status(403).json({
+        success: false,
+        error: "حساب کاربری شما مسدود شده است"
+      });
+    }
+
+    // 5. تولید کد 5 رقمی
+    // const code = Math.floor(10000 + Math.random() * 90000).toString();
+    const code = "12345";
+
+    // 6. ارسال کد از طریق SMS.IR (فقط اگر شماره موبایل وجود داشته باشد)
+    let smsSent = false;
+    if (user.phone) {
+      // try {
+      //   const smsResult = await sendVerificationCode(user.phone, code);
+      //   if (smsResult.success) {
+      //     smsSent = true;
+      //   } else {
+      //     console.error("❌ خطا:", smsResult.message)
+      //   }
+      // } catch (smsError) {
+      //   console.error('خطا در ارسال پیامک:', smsError);
+      // }
+    }
+
+    // 7. ذخیره کد در حافظه موقت
+    otpStore[identifier] = {
+      code,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      userId: user.id,
+      phone: user.phone,
+      nationalCode: user.nationalCode,
+      personCode: user.personCode
     };
-    users.push(user);
+
+    // 8. ثبت لاگ
+    auditLogs.unshift({
+      id: "log-" + Date.now(),
+      actorName: identifier,
+      action: "OTP_REQUESTED",
+      details: `کد یکبارمصرف برای ${identifier} ارسال شد${smsSent ? '' : ' (پیامک ارسال نشد)'}`,
+      timestamp: new Date().toISOString(),
+      level: smsSent ? "info" : "warning"
+    });
+
+    // 9. پاسخ موفق
+    res.json({
+      success: true,
+      message: smsSent ? "کد تأیید برای شما ارسال شد" : "کد تأیید ایجاد شد (ارسال پیامک با خطا مواجه شد)",
+      otp: systemSettings.otpEnabled ? code : undefined,
+      identifier,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        nationalCode: user.nationalCode,
+        personCode: user.personCode,
+        displayName: user.displayName
+      }
+    });
+
+  } catch (error: any) {
+    console.error('خطا در ارسال OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: "خطای داخلی سرور"
+    });
   }
-
-  if (user.isBanned) {
-    return res.status(403).json({ error: "حساب کاربری شما مسدود شده است" });
-  }
-
-  const token = `jwt-token-${user.id}-${Date.now()}`;
-  const sessId = sessions.length > 0 ? Math.max(...sessions.map(s => Number(s.id) || 0)) + 1 : 1;
-  const newSession: UserSession = {
-    id: sessId,
-    userId: user.id,
-    deviceName: "مرورگر وب (جلسه فعال)",
-    ipAddress: "127.0.0.1",
-    browser: "Chrome Client",
-    lastActive: "هم‌اکنون",
-    isCurrent: true
-  };
-  sessions.push(newSession);
-
-  res.json({ token, user, session: newSession });
 });
 
-// Current User Me
+// ============================================
+// 2. VERIFY OTP (بدون ساخت کاربر جدید)
+// ============================================
+router.post("/auth/otp/verify", async (req: Request, res: Response) => {
+  try {
+    const { identifier, code } = req.body;
+
+    // 1. اعتبارسنجی
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        error: "شناسه (شماره موبایل / کد پرسنلی / کد ملی) الزامی است"
+      });
+    }
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: "کد تأیید الزامی است"
+      });
+    }
+
+    // 2. بررسی کد در otpStore
+    if (systemSettings.otpEnabled) {
+      const stored = otpStore[identifier];
+      if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
+        return res.status(400).json({
+          success: false,
+          error: "کد تأیید اشتباه یا منقضی شده است"
+        });
+      }
+    }
+
+    // 3. جستجوی کاربر با identifier در هر سه فیلد
+    const user = users.find(u =>
+      u.phone === identifier ||
+      u.nationalCode === identifier ||
+      u.personCode === identifier
+    );
+
+    // 4. اگر کاربر وجود نداشت، خطا برگردان (نه ساخت کاربر جدید!)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "کاربری با این شناسه یافت نشد"
+      });
+    }
+
+    // 5. بررسی مسدود بودن کاربر
+    if (user.isBanned) {
+      return res.status(403).json({
+        success: false,
+        error: "حساب کاربری شما مسدود شده است"
+      });
+    }
+
+    // 6. حذف کد از حافظه بعد از استفاده موفق
+    delete otpStore[identifier];
+
+    // 7. ایجاد توکن و نشست جدید
+    const token = `jwt-token-${user.id}-${Date.now()}`;
+    const sessId = sessions.length > 0 ? Math.max(...sessions.map(s => Number(s.id) || 0)) + 1 : 1;
+    const newSession: UserSession = {
+      id: sessId,
+      userId: user.id,
+      deviceName: "مرورگر وب (جلسه فعال)",
+      ipAddress: req.ip || "127.0.0.1",
+      browser: "Chrome Client",
+      lastActive: "هم‌اکنون",
+      isCurrent: true
+    };
+    sessions.push(newSession);
+
+    // 8. ثبت لاگ
+    auditLogs.unshift({
+      id: "log-" + Date.now(),
+      actorName: identifier,
+      action: "LOGIN_SUCCESS",
+      details: `ورود موفق کاربر ${user.displayName || user.personCode}`,
+      timestamp: new Date().toISOString(),
+      level: "info"
+    });
+
+    // 9. پاسخ موفق
+    res.json({
+      success: true,
+      token,
+      user,
+      session: newSession
+    });
+
+  } catch (error: any) {
+    console.error('خطا در تأیید OTP:', error);
+    res.status(500).json({
+      success: false,
+      error: "خطای داخلی سرور"
+    });
+  }
+});
+// ============================================
+// 3. CURRENT USER (ME)
+// ============================================
 router.get("/auth/me", (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.includes("jwt-token-")) {
@@ -211,30 +333,32 @@ router.get("/auth/me", (req: Request, res: Response) => {
   res.json({ user, sessions: userSessions });
 });
 
-// Update Profile
+// ============================================
+// 4. UPDATE PROFILE
+// ============================================
 router.post("/auth/profile/update", async (req: Request, res: Response) => {
-  const { userId, firstName, lastName, displayName, username, bio, avatarUrl } = req.body;
+  const { userId, firstName, lastName, displayName, avatarUrl } = req.body;
   const user = users.find(u => String(u.id) === String(userId));
   if (!user) return res.status(404).json({ error: "کاربر یافت نشد" });
 
   if (firstName) user.firstName = firstName;
   if (lastName) user.lastName = lastName;
   if (displayName) user.displayName = displayName;
-  if (username) user.username = username;
-  if (bio !== undefined) user.bio = bio;
   if (avatarUrl !== undefined) {
     user.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "avatar_" + user.id) : AvatarPhoto;
   }
 
   await dbExecute(
-    `UPDATE users SET first_name = ?, last_name = ?, display_name = ?, username = ?, bio = ?, avatar_url = ? WHERE id = ?`,
-    [user.firstName, user.lastName, user.displayName, user.username, user.bio, user.avatarUrl, user.id]
+    `UPDATE users SET first_name = ?, last_name = ?, display_name = ?, avatar_url = ? WHERE id = ?`,
+    [user.firstName, user.lastName, user.displayName, user.avatarUrl, user.id]
   );
 
   res.json({ user, message: "پروفایل با موفقیت بروزرسانی شد" });
 });
 
-// Terminate other sessions
+// ============================================
+// 5. TERMINATE OTHER SESSIONS
+// ============================================
 router.post("/auth/sessions/terminate-others", (req: Request, res: Response) => {
   const { userId, currentSessionId } = req.body;
   const filtered = sessions.filter(s => String(s.userId) !== String(userId) || String(s.id) === String(currentSessionId));
@@ -243,7 +367,9 @@ router.post("/auth/sessions/terminate-others", (req: Request, res: Response) => 
   res.json({ message: "تمام نشست‌های دیگر با موفقیت بسته شدند" });
 });
 
-// System Settings
+// ============================================
+// 6. SYSTEM SETTINGS
+// ============================================
 router.get("/settings", (req: Request, res: Response) => {
   res.json(systemSettings);
 });

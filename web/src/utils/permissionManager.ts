@@ -1,115 +1,149 @@
-export type PermissionStatus = "granted" | "denied" | "default" | "prompt";
+// web/src/utils/permissionManager.ts
 
-export type PermissionState = PermissionStatus;
+export type PermissionStatus = "default" | "granted" | "denied";
 
-export interface AppPermissionsStatus {
-  microphone: PermissionStatus;
-  camera: PermissionStatus;
-  notification: PermissionStatus;
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
+export interface PermissionRequestResult {
+  status: PermissionStatus;
+  message?: string;
+  subscription?: PushSubscription;
 }
 
 export const permissionManager = {
+  /**
+   * بررسی وضعیت مجوز اعلان
+   */
   checkNotificationPermission(): PermissionStatus {
-    if (!("Notification" in window)) return "denied";
-    if (Notification.permission === "granted") return "granted";
-    if (Notification.permission === "denied") return "denied";
-    return "default";
+    if (!('Notification' in window)) {
+      return "denied";
+    }
+    return Notification.permission as PermissionStatus;
   },
 
-  async checkMediaPermission(type: "microphone" | "camera"): Promise<PermissionStatus> {
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const res = await navigator.permissions.query({ name: type as PermissionName });
-        if (res.state === "granted") return "granted";
-        if (res.state === "denied") return "denied";
-        return "default";
-      } catch {
-        // Fallback
-      }
-    }
-    return "default";
-  },
-
-  async requestNotificationPermission(vapidPublicKey?: string): Promise<{ status: PermissionStatus; subscription?: any }> {
-    if (!("Notification" in window)) {
-      throw new Error("مرورگر شما از Notification پشتیبانی نمی‌کند.");
-    }
-    const result = await Notification.requestPermission();
-    const status: PermissionStatus = result === "granted" ? "granted" : result === "denied" ? "denied" : "default";
-
-    let subscription = null;
-    if (status === "granted" && "serviceWorker" in navigator && vapidPublicKey) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: convertedKey,
-        });
-      } catch (e) {
-        console.warn("Push subscription failed during permission request:", e);
-      }
-    }
-
-    return { status, subscription };
-  },
-
-  async requestMediaPermission(type: "microphone" | "camera"): Promise<{ status: PermissionStatus; message: string }> {
+  /**
+   * درخواست مجوز اعلان و ثبت اشتراک Push
+   */
+  async requestNotificationPermission(vapidPublicKey?: string): Promise<PermissionRequestResult> {
     try {
-      const constraints = type === "microphone" ? { audio: true } : { video: true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      stream.getTracks().forEach((track) => track.stop());
-      return {
-        status: "granted",
-        message: `مجوز دسترسی به ${type === "microphone" ? "میکروفون" : "دوربین"} با موفقیت تایید شد.`,
-      };
-    } catch (err: any) {
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      // 1. بررسی پشتیبانی مرورگر
+      if (!('Notification' in window)) {
         return {
           status: "denied",
-          message: `دسترسی به ${
-            type === "microphone" ? "میکروفون" : "دوربین"
-          } مسدود شده است. لطفاً از تنظیمات مرورگر آن را بر روی Allow قرار دهید.`,
+          message: "مرورگر شما از اعلان‌های Push پشتیبانی نمی‌کند",
+        };
+      }
+
+      if (!('serviceWorker' in navigator)) {
+        return {
+          status: "denied",
+          message: "مرورگر شما از Service Worker پشتیبانی نمی‌کند",
+        };
+      }
+
+      if (!('PushManager' in window)) {
+        return {
+          status: "denied",
+          message: "مرورگر شما از Push Manager پشتیبانی نمی‌کند",
+        };
+      }
+
+      // 2. درخواست مجوز
+      const permission = await Notification.requestPermission();
+
+      if (permission === "denied") {
+        return {
+          status: "denied",
+          message: "مجوز اعلان‌ها در مرورگر مسدود شده است",
+        };
+      }
+
+      if (permission === "default") {
+        return {
+          status: "default",
+          message: "درخواست مجوز اعلان لغو شد",
+        };
+      }
+
+      // 3. مجوز granted - ثبت اشتراک
+      if (!vapidPublicKey) {
+        return {
+          status: "granted",
+          message: "مجوز اعلان داده شد اما کلید VAPID موجود نیست",
+        };
+      }
+
+      // 4. آماده کردن Service Worker
+      let registration: ServiceWorkerRegistration;
+      try {
+        registration = await navigator.serviceWorker.ready;
+      } catch {
+        // اگر SW آماده نبود، ثبت کن
+        await navigator.serviceWorker.register('/sw.js');
+        registration = await navigator.serviceWorker.ready;
+      }
+
+      // 5. ایجاد اشتراک Push
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidPublicKey,
+      });
+
+      return {
+        status: "granted",
+        message: "مجوز اعلان با موفقیت دریافت شد",
+        subscription,
+      };
+
+    } catch (error: any) {
+      console.error("Error in requestNotificationPermission:", error);
+      return {
+        status: "denied",
+        message: error.message || "خطا در دریافت مجوز اعلان",
+      };
+    }
+  },
+
+  /**
+   * بررسی مجوز رسانه (میکروفون/دوربین)
+   */
+  async checkMediaPermission(type: "microphone" | "camera"): Promise<PermissionStatus> {
+    try {
+      const result = await navigator.permissions.query({ name: type as any });
+      return result.state as PermissionStatus;
+    } catch {
+      // اگر Permission API پشتیبانی نشد
+      return "default";
+    }
+  },
+
+  /**
+   * درخواست مجوز رسانه (میکروفون/دوربین)
+   */
+  async requestMediaPermission(type: "microphone" | "camera"): Promise<PermissionRequestResult> {
+    try {
+      const constraints = type === "microphone"
+        ? { audio: true }
+        : { video: true };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // برای آزاد کردن منابع
+      stream.getTracks().forEach(track => track.stop());
+
+      return {
+        status: "granted",
+        message: `مجوز ${type === "microphone" ? "میکروفون" : "دوربین"} با موفقیت دریافت شد`,
+      };
+    } catch (error: any) {
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        return {
+          status: "denied",
+          message: `مجوز ${type === "microphone" ? "میکروفون" : "دوربین"} در مرورگر مسدود شده است`,
         };
       }
       return {
-        status: "denied",
-        message: `امکان دریافت مجوز وجود ندارد: ${err.message || "خطای ناشناخته"}`,
+        status: "default",
+        message: error.message || `خطا در دریافت مجوز ${type === "microphone" ? "میکروفون" : "دوربین"}`,
       };
     }
   },
-};
-
-export const checkPermissionStatus = async (): Promise<AppPermissionsStatus> => {
-  const notification = permissionManager.checkNotificationPermission();
-  const microphone = await permissionManager.checkMediaPermission("microphone");
-  const camera = await permissionManager.checkMediaPermission("camera");
-  return { microphone, camera, notification };
-};
-
-export const requestAppPermission = async (
-  type: "microphone" | "camera" | "notification"
-): Promise<{ state: PermissionStatus; message: string }> => {
-  if (type === "notification") {
-    try {
-      const res = await permissionManager.requestNotificationPermission();
-      return { state: res.status, message: res.status === "granted" ? "مجوز صادر شد." : "دسترسی داده نشد." };
-    } catch (e: any) {
-      return { state: "denied", message: e.message };
-    }
-  } else {
-    const res = await permissionManager.requestMediaPermission(type);
-    return { state: res.status, message: res.message };
-  }
 };

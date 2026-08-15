@@ -22,7 +22,6 @@ export const Header: React.FC = () => {
     setShowAdminPanel,
     setShowProfileModal,
     setShowAuthModal,
-    logout,
   } = useChat();
 
   return (
@@ -30,7 +29,7 @@ export const Header: React.FC = () => {
       {/* Brand & Status */}
       <div className="flex items-center gap-3">
         <div className="w-30 h-10">
-            <ShowImage src={LogoPhoto} className="w-30 h-10" />
+          <ShowImage src={LogoPhoto} className="w-30 h-10" />
         </div>
         <div>
           <h1 className="font-bold text-base tracking-tight flex items-center gap-2">
@@ -73,7 +72,7 @@ export const Header: React.FC = () => {
               setShowAdminPanel(true);
               try {
                 window.history.pushState({}, "", "/admin");
-              } catch (e) {}
+              } catch (e) { }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-all shadow-sm cursor-pointer"
             title="ورود به پنل مدیریت (/admin)"
@@ -102,18 +101,7 @@ export const Header: React.FC = () => {
                 <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight">
                   {currentUser.displayName}
                 </p>
-                <p className="text-[10px] text-blue-500 font-mono">
-                  @{currentUser.username}
-                </p>
               </div>
-            </button>
-
-            <button
-              onClick={logout}
-              title="خروج از حساب"
-              className="p-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
             </button>
           </div>
         ) : (
