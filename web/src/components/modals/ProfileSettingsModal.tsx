@@ -45,7 +45,7 @@ export const ProfileSettingsModal: React.FC = () => {
   };
 
   // ==========================================
-  // درخواست مجوز اعلان‌های Push
+  // درخواست مجوز اعلان‌های Push (اصلاح شده)
   // ==========================================
   const handleRequestNotif = async () => {
     setNotifLoading(true);
@@ -61,7 +61,23 @@ export const ProfileSettingsModal: React.FC = () => {
         throw new Error("VAPID Public Key از سرور دریافت نشد");
       }
 
-      // 2️⃣ درخواست مجوز و ثبت اشتراک
+      // 2️⃣ بررسی و لغو اشتراک قبلی (مهم!)
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const existingSubscription = await registration.pushManager.getSubscription();
+
+          if (existingSubscription) {
+            console.log("🗑️ لغو اشتراک قبلی...");
+            await existingSubscription.unsubscribe();
+            console.log("✅ اشتراک قبلی لغو شد");
+          }
+        } catch (err) {
+          console.log("⚠️ خطا در لغو اشتراک قبلی (ممکن است وجود نداشته باشد):", err);
+        }
+      }
+
+      // 3️⃣ درخواست مجوز و ثبت اشتراک جدید
       const result = await permissionManager.requestNotificationPermission(
         pushConfig.vapidPublicKey
       );
@@ -69,10 +85,10 @@ export const ProfileSettingsModal: React.FC = () => {
       setNotifPermission(result.status);
 
       if (result.status === "granted" && result.subscription) {
-        // 3️⃣ ارسال اشتراک به سرور
-        console.log("📤 ارسال اشتراک به سرور...");
+        // 4️⃣ ارسال اشتراک جدید به سرور
+        console.log("📤 ارسال اشتراک جدید به سرور...");
         await api.subscribePush(result.subscription, String(currentUser?.id || "guest"));
-        console.log("✅ اشتراک با موفقیت به سرور ارسال شد");
+        console.log("✅ اشتراک جدید با موفقیت به سرور ارسال شد");
         setSuccessMsg("✅ مجوز اعلان‌ها با موفقیت فعال شد");
         setTimeout(() => setSuccessMsg(""), 4000);
       } else if (result.status === "denied") {

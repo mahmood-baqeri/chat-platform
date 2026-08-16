@@ -11,13 +11,12 @@ import { initPushService } from "./services/pushService.js";
 import { createWebSocketServer } from "./websocket/wsServer.js";
 import { PORT, UPLOADS_DIR } from "./config.js";
 
-import authRoutes from "./routes/authRoutes.js";
-import chatRoutes from "./routes/chatRoutes.js";
-import contactRoutes from "./routes/contactRoutes.js";
-import uploadRoutes from "./routes/uploadRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import dbRoutes from "./routes/dbRoutes.js";
-import pushRoutes from "./routes/pushRoutes.js";
+import authEndpoint from "./endpoints/auth-endpoint.js";
+import chatEndpoint from "./endpoints/chat-endpoint.js";
+import uploadEndpoint from "./endpoints/upload-endpoint.js";
+import adminEndpoint from "./endpoints/admin-endpoint.js";
+import dbEndpoint from "./endpoints/db-endpoint.js";
+import pushEndpoint from "./endpoints/push-endpoint.js";
 
 const currentDir = process.cwd();
 
@@ -35,19 +34,18 @@ export async function startServer() {
   // Initialize DB and background services
   await ensureDbInitialized();
   await loadDataFromDB();
-  initPushService();
+  await initPushService(); 
 
   // Create WebSocket Server
   createWebSocketServer(server);
 
   // Register API Route Modules
-  app.use("/api", authRoutes);
-  app.use("/api", chatRoutes);
-  app.use("/api", contactRoutes);
-  app.use("/api", uploadRoutes);
-  app.use("/api", adminRoutes);
-  app.use("/api", dbRoutes);
-  app.use("/api", pushRoutes);
+  app.use("/api", authEndpoint);
+  app.use("/api", chatEndpoint);
+  app.use("/api", uploadEndpoint);
+  app.use("/api", adminEndpoint);
+  app.use("/api", dbEndpoint);
+  app.use("/api", pushEndpoint);
 
   // Vite Middleware in Development Mode
   if (process.env.NODE_ENV !== "production") {

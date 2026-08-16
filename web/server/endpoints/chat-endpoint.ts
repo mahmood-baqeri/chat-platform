@@ -1,4 +1,4 @@
-// web/server/routes/chatRoutes.ts
+// web/server/endpoints/chat-endpoint.ts
 
 import express, { Request, Response } from "express";
 import {
@@ -24,7 +24,7 @@ import {
   AvatarPhoto,
   BaseDomain
 } from "../models/types.js";
-import { getUserIdFromReq, formatChatForUser } from "./authRoutes.js";
+import { getUserIdFromReq, formatChatForUser } from "./auth-endpoint.js";
 import { dbQuery, dbExecute } from "../db/index.js";
 import { sendRoomWSEvent, sendChatMembersWSEvent, broadcastWSEvent } from "../websocket/wsServer.js";
 import { saveBase64ToFile, generateUUIDv4 } from "../config.js";

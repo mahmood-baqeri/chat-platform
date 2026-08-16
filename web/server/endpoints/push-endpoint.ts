@@ -49,23 +49,30 @@ router.get("/admin/push-settings", (req, res) => {
   });
 });
 
-// بروزرسانی تنظیمات Push
-router.post("/admin/push-settings", (req, res) => {
-  const config = updatePushConfig(req.body);
-  res.json({
-    success: true,
-    message: "تنظیمات Push Notification با موفقیت ذخیره شد.",
-    config
-  });
-});
-
-// تولید کلیدهای VAPID جدید
-router.post("/admin/push-generate-vapid", (req, res) => {
+// بروزرسانی تنظیمات Push - اصلاح شده با await
+router.post("/admin/push-settings", async (req, res) => {
   try {
-    const keys = generateNewVapidKeys();
+    const config = await updatePushConfig(req.body);
     res.json({
       success: true,
-      message: "کلیدهای جدید VAPID با موفقیت تولید شدند.",
+      message: "تنظیمات Push Notification با موفقیت ذخیره شد.",
+      config
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || "خطا در ذخیره تنظیمات"
+    });
+  }
+});
+
+// تولید کلیدهای VAPID جدید - اصلاح شده با await
+router.post("/admin/push-generate-vapid", async (req, res) => {
+  try {
+    const keys = await generateNewVapidKeys();
+    res.json({
+      success: true,
+      message: "کلیدهای جدید VAPID با موفقیت تولید و در دیتابیس ذخیره شدند.",
       vapidPublicKey: keys.publicKey,
       vapidPrivateKey: keys.privateKey,
     });
@@ -278,7 +285,7 @@ router.post("/admin/push-send", async (req, res) => {
 
     res.json({
       success: true,
-      message: `اعلان Push با موفقیت به ${result.sentCount} دستگاه ارسال شد.`,
+      message: `اعلان Push با موفقیت به ${result.sentCount} دستگاه ارسال شد.${result.failCount > 0 ? ` (${result.failCount} خطا)` : ""}`,
       sentCount: result.sentCount,
       failCount: result.failCount,
     });
@@ -289,4 +296,5 @@ router.post("/admin/push-send", async (req, res) => {
     });
   }
 });
+
 export default router;

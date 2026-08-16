@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
 import { users, messages, chats, formatMessageFromDB } from "../store/dataStore.js";
-import { formatChatForUser } from "../routes/authRoutes.js";
+import { formatChatForUser } from "../endpoints/auth-endpoint.js";
 
 export let wss: WebSocketServer | null = null;
 export const wsClients = new Map<WebSocket, { userId?: string }>();
