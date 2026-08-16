@@ -93,15 +93,79 @@ export const MessageInput: React.FC = () => {
   }, [text]);
 
   const emojis = [
-    "😊", "😂", "🥰", "❤️", "👍", "🔥", "🎉", "🙏", "😍", "✨",
-    "🙌", "💯", "👌", "😎", "🚀", "💡", "🎯", "👏", "😭", "🤔",
-    "🥳", "🥺", "💪", "⚡", "🌟", "🌸", "⭐", "🤩", "🤝", "💬"
+    // 😂 خنده و شادی (محبوب‌ترین)
+    "😊", "😂", "🤣", "😄", "😁", "😆", "😅", "🤗", "😋", "😛",
+    "😝", "🤪", "🥳", "🎉", "🎊", "🎈", "🎁", "✨", "🌟", "⭐",
+
+    // ❤️ عشق و احساسات
+    "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
+    "❤️‍🔥", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "🥰",
+    "😍", "🥹", "😘", "😗", "😙", "😚", "🥲", "☺️", "🙂", "😇",
+
+    // 👍 تایید و مثبت
+    "👍", "👏", "🙌", "🤝", "✌️", "🤞", "🫶", "💪", "🤙", "👊",
+    "✊", "🤛", "🤜", "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌",
+
+    // 😎 باحال و اعتماد به نفس
+    "😎", "🤩", "😏", "🥸", "🧐", "🤓", "😜", "😉", "🤨", "🙃",
+
+    // 🔥 انرژی و هیجان
+    "🔥", "⚡", "💯", "🚀", "💡", "🎯", "🏆", "🥇", "🥈", "🥉",
+    "💎", "🪄", "⭐", "🌟", "✨", "🌈", "☀️", "🌙", "🌊", "⛰️",
+
+    // 🌸 طبیعت و زیبایی
+    "🌸", "🌺", "🌻", "🌹", "🥀", "🌷", "🌱", "🌿", "☘️", "🍀",
+    "🌵", "🌴", "🌳", "🍃", "🍂", "🍁", "🌾", "🌽", "🍄", "🌼",
+
+    // 😢 ناراحتی و همدردی
+    "😢", "😭", "🥺", "😥", "😓", "😔", "😞", "😟", "😕", "🙁",
+    "☹️", "😣", "😖", "😫", "😩", "🥹", "😰", "😨", "😧", "😦",
+
+    // 🐱 حیوانات
+    "🐱", "🐶", "🐰", "🐼", "🦊", "🐺", "🐨", "🐵", "🐸", "🐧",
+    "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐗", "🐴",
+    "🦄", "🐝", "🐞", "🦋", "🐙", "🐬", "🐳", "🐊", "🦕", "🦖",
+
+    // 🍕 غذا و نوشیدنی
+    "🍕", "🍔", "🍟", "🌭", "🍿", "🧇", "🥞", "🧁", "🍩", "🍪",
+    "🍫", "🍬", "🍭", "🍮", "🍯", "🥐", "🥖", "🥨", "🥯", "🧀",
+    "🥚", "🍳", "🥓", "🥩", "🍗", "🍖", "🌮", "🌯", "🥙", "🧆",
+
+    // 🎵 سرگرمی
+    "🎵", "🎶", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸",
+    "🎻", "🪕", "🎮", "🎲", "♟️", "🎯", "🎳", "🎪", "🎭", "🎨",
+
+    // 🏃 ورزش
+    "🏃", "🏃‍♂️", "🏃‍♀️", "🚴", "🚴‍♂️", "🚴‍♀️", "🏊", "🏊‍♂️", "🏊‍♀️", "⛹️",
+    "⛹️‍♂️", "⛹️‍♀️", "🤸", "🤸‍♂️", "🤸‍♀️", "🧘", "🧘‍♂️", "🧘‍♀️", "🤼", "🤼‍♂️",
+    "🤼‍♀️", "🤽", "🤽‍♂️", "🤽‍♀️", "🤾", "🤾‍♂️", "🤾‍♀️", "🏋️", "🏋️‍♂️", "🏋️‍♀️",
+
+
+    // 💻 تکنولوژی
+    "💻", "🖥️", "🖨️", "⌨️", "🖱️", "🖲️", "📱", "📲", "💾", "📀",
+    "💿", "🧮", "📡", "📷", "📸", "📹", "🎥", "📽️", "🎞️", "📼",
+
+    // 📚 تحصیل و کار
+    "📚", "📖", "📗", "📘", "📙", "📕", "📓", "📔", "📒", "📰",
+    "📑", "🔖", "📎", "📏", "📐", "✏️", "✒️", "🖊️", "🖋️", "🖌️",
+    "🖍️", "📝", "📃", "📜", "📄", "📋", "📌", "📍", "📌", "🔗",
+
+    // 💰 پول و ثروت
+    "💰", "💵", "💴", "💶", "💷", "🪙", "💳", "🧾", "💎", "⚖️",
+
+    // 🎃 مناسبت‌ها
+    "🎃", "🕯️", "🪔", "🎄", "🎅", "🤶", "🎁", "🎀", "🎈", "🎉",
+    "🎊", "🎋", "🎍", "🎎", "🎏", "🎐", "🎑", "🎒", "🎓", "🧑‍🎓",
+
+    // 🧠 فکری
+    "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👄", "👅", "🦻",
+    "👂", "👃", "👣", "🧬", "🔬", "🔭", "🧪", "🧫", "🧬", "🩺",
+
+    // 🧘 حالت‌ها
+    "🧘", "🧘‍♂️", "🧘‍♀️", "🕉️", "☯️", "✡️", "☸️", "☦️", "🛐", "⛎",
   ];
-  const stickers = [
-    "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=100&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=100&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80",
-  ];
+
+
 
   // Load draft or editing content
   useEffect(() => {
@@ -345,9 +409,8 @@ export const MessageInput: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`bg-[var(--sidebar)] backdrop-blur-md border-t border-[var(--border)] p-3 relative text-[var(--text-primary)] shrink-0 transition-all duration-200 ${
-        isDragOver ? "border-2 border-dashed border-[#09387C] bg-[#09387C]/5" : ""
-      }`}
+      className={`bg-[var(--sidebar)] backdrop-blur-md border-t border-[var(--border)] p-3 relative text-[var(--text-primary)] shrink-0 transition-all duration-200 ${isDragOver ? "border-2 border-dashed border-[#09387C] bg-[#09387C]/5" : ""
+        }`}
     >
       {/* Hidden File Input */}
       <input
@@ -370,10 +433,10 @@ export const MessageInput: React.FC = () => {
         <>
           {/* Upload Progress Indicator HUD */}
           {uploadProgress && (
-            <div className="bg-[var(--list)] border border-blue-500/30 p-3 rounded-2xl mb-2 backdrop-blur-md shadow-xl text-xs space-y-2 animate-in fade-in duration-150">
+            <div className="bg-[var(--list)] border border-cyan-500/30 p-3 rounded-2xl mb-2 backdrop-blur-md shadow-xl text-xs space-y-2 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Sparkles className="w-4 h-4 text-blue-500 shrink-0 animate-spin" />
+                  <Sparkles className="w-4 h-4 text-cyan-500 shrink-0 animate-spin" />
                   <span className="font-bold text-[var(--text-primary)] truncate">{uploadProgress.fileName}</span>
                 </div>
                 <button
@@ -388,7 +451,7 @@ export const MessageInput: React.FC = () => {
               {/* Progress Bar */}
               <div className="w-full bg-black/10 dark:bg-white/10 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full transition-all duration-150"
+                  className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full transition-all duration-150"
                   style={{ width: `${uploadProgress.percent}%` }}
                 />
               </div>
@@ -406,9 +469,9 @@ export const MessageInput: React.FC = () => {
 
           {/* Reply or Edit Banner */}
           {(replyTo || editingMessage) && (
-            <div className="bg-[var(--list)] border-r-4 border-blue-500 p-2.5 rounded-xl mb-2 flex items-center justify-between text-xs backdrop-blur-md">
+            <div className="bg-[var(--list)] border-r-4 border-cyan-500 p-2.5 rounded-xl mb-2 flex items-center justify-between text-xs backdrop-blur-md">
               <div className="min-w-0 pr-1">
-                <p className="font-bold text-blue-500 mb-0.5">
+                <p className="font-bold text-cyan-500 mb-0.5">
                   {editingMessage ? "ویرایش پیام" : `پاسخ به ${String(replyTo?.senderId) === String(currentUser?.id) ? "خودتان" : "کاربر"}`}
                 </p>
                 <p className="text-[var(--text-secondary)] truncate text-[11px]">
@@ -464,26 +527,9 @@ export const MessageInput: React.FC = () => {
                   onClick={() => triggerFileInput(".pdf, .docx, .doc, .zip, .rar, .xlsx, .txt")}
                   className="w-full text-right p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2.5 text-[var(--text-primary)] transition-colors"
                 >
-                  <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                  <FileText className="w-4 h-4 text-cyan-500 shrink-0" />
                   <span>ارسال سند (PDF / Word / ZIP)</span>
                 </button>
-              )}
-
-              {systemSettings.allowStickers && (
-                <div className="pt-2 border-t border-[var(--border)]">
-                  <p className="text-[10px] text-[var(--text-secondary)] mb-1">پک استیکر سریع</p>
-                  <div className="flex items-center gap-2">
-                    {stickers.map((stk, i) => (
-                      <img
-                        key={i}
-                        src={stk}
-                        alt="Sticker"
-                        onClick={() => sendSticker(stk)}
-                        className="w-10 h-10 rounded-xl object-cover border border-[var(--border)] hover:scale-110 transition-transform cursor-pointer"
-                      />
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           )}
@@ -494,10 +540,6 @@ export const MessageInput: React.FC = () => {
               dir="rtl"
               className="absolute bottom-16 right-4 sm:right-12 z-30 bg-[var(--sidebar)] border border-[var(--border)] shadow-2xl rounded-2xl p-3.5 w-72 sm:w-96 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150"
             >
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-[var(--border)]">
-                <span className="text-xs font-bold text-[var(--text-secondary)]">ایموجی‌های پرکاربرد ({emojis.length})</span>
-                <span className="text-[10px] text-[var(--text-secondary)] font-mono">ESC جهت خروج</span>
-              </div>
               <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 text-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
                 {emojis.map((emoji) => (
                   <button
@@ -537,7 +579,7 @@ export const MessageInput: React.FC = () => {
             {/* Attachment Toggle */}
             <button
               onClick={() => setShowAttachMenu(!showAttachMenu)}
-              className="p-2.5 rounded-xl bg-[var(--list)] hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-secondary)] hover:text-blue-500 transition-colors border border-[var(--border)] shrink-0"
+              className="p-2.5 rounded-xl bg-[var(--list)] hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-secondary)] hover:text-cyan-500 transition-colors border border-[var(--border)] shrink-0"
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -551,7 +593,7 @@ export const MessageInput: React.FC = () => {
             </button>
 
             {/* Text Area Input */}
-            <div className="flex-1 bg-[var(--list)] border border-[var(--border)] rounded-xl px-4 py-1.5 focus-within:border-blue-500 transition-all flex items-center">
+            <div className="flex-1 bg-[var(--list)] border border-[var(--border)] rounded-xl px-4 py-1.5 focus-within:border-cyan-500 transition-all flex items-center">
               <textarea
                 ref={textareaRef}
                 value={text}
@@ -573,14 +615,14 @@ export const MessageInput: React.FC = () => {
               <button
                 onClick={handleSend}
                 disabled={uploadProgress !== null}
-                className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md shadow-blue-500/20 transition-all shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-50"
+                className="w-10 h-10 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold shadow-md shadow-cyan-500/20 transition-all shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-50"
               >
-                <Send className="w-4 h-4 rotate-180" />
+                <Send className="w-4 h-4" />
               </button>
             ) : systemSettings.allowAudio ? (
               <button
                 onClick={() => setShowVoiceModal(true)}
-                className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 transition-all shrink-0"
+                className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20 border border-cyan-500/20 transition-all shrink-0"
               >
                 <Mic className="w-5 h-5" />
               </button>

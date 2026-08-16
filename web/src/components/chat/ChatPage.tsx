@@ -8,7 +8,7 @@ import { ChatPageDragDropOverlay } from "./ChatPageDragDropOverlay";
 import { ChatPageHeader } from "./ChatPageHeader";
 import { ChatPageMessages } from "./ChatPageMessages";
 import { ChatPageMobileBottomSheet } from "./ChatPageMobileBottomSheet";
-import { ChatPageScrollToBottomButton } from "./ChatPAgeScrollToBottomButton";
+import { ChatPageScrollToBottomButton } from "./ChatPageScrollToBottomButton";
 import { ChatPageFooter } from "./ChatPageFooter";
 
 export const ChatPane: React.FC = () => {

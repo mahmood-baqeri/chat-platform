@@ -110,7 +110,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                               <span className="font-bold shrink-0">آخرین پیام پین‌شده ({pinnedMessages.length}):</span>
                               <span className="truncate text-[var(--text-secondary)]">{latestPinned.content || "فایل ضمیمه"}</span>
                          </div>
-                         <span className="text-[10px] text-amber-500/80 hover:underline shrink-0 ml-2 px-2">مشاهده همه</span>
+                         <span className="text-[10px] text-amber-500/80  shrink-0 ml-2 px-2">مشاهده همه</span>
                     </div>
                )}
 

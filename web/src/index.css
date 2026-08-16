@@ -85,8 +85,6 @@ body {
 }
 
 
-.otpElement {}
-
 .otpElement>div {
   justify-content: space-evenly !important;
   flex-direction: row-reverse !important;

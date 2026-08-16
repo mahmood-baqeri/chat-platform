@@ -20,6 +20,7 @@ import {
 import { ShowImage } from "@/src/utils/showImage";
 import { api } from "@/src/services/api";
 import { Message, NonePhoto } from "@/src/types";
+import { useIsEmojiOnly } from "@/src/hooks/useIsEmojiOnly";
 
 interface Props {
   message: Message;
@@ -250,6 +251,11 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
     }
   };
 
+  // const isEmojiOnly = useIsEmojiOnly(message.content);
+  console.log('message.content:', message.content);
+  const isEmojiOnlyResult = useIsEmojiOnly(message.content);
+  console.log('isEmojiOnly result:', isEmojiOnlyResult);
+
   return (
     <div
       ref={containerRef}
@@ -365,7 +371,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
             (!message.attachments ||
               message.attachments.length === 0 ||
               message.content !== message.attachments[0]?.name) && (
-              <div className="whitespace-pre-wrap break-words text-[var(--text-primary)] font-normal border-white/10 text-xs leading-relaxed">
+              <div className={`whitespace-pre-wrap break-words text-[var(--text-primary)] font-normal border-white/10 leading-relaxed ${isEmojiOnlyResult ? 'text-[50px]' : 'text-xs'}`}>
                 {message.content}
               </div>
             )}
