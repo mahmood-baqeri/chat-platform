@@ -14,7 +14,7 @@ const router = express.Router();
 // GET Contacts
 router.get("/contacts", async (req: Request, res: Response) => {
   const userId = (req.query.userId as string) || "user-1";
-  
+
   const otherUsers = users.filter(u => String(u.id) !== String(userId));
 
   const enriched = otherUsers.map(u => {
@@ -36,8 +36,8 @@ router.get("/contacts", async (req: Request, res: Response) => {
       id: customContact?.id || `cnt-${u.id}`,
       userId,
       contactUserId: u.id,
-      customName: customContact?.customName || u.displayName || u.username || u.phone || "کاربر",
-      displayName: u.displayName || customContact?.customName || u.username || u.phone || "کاربر",
+      customName: customContact?.customName || u.displayName || u.phone || "کاربر",
+      displayName: u.displayName || customContact?.customName || u.phone || "کاربر",
       avatarUrl: u.avatarUrl || AvatarPhoto,
       status: u.status || "offline",
       lastSeen: u.lastSeen || "چند لحظه پیش",
@@ -49,7 +49,6 @@ router.get("/contacts", async (req: Request, res: Response) => {
       unreadCount,
       chatId: directChat?.id || null,
       phone: u.phone || "",
-      username: u.username || "",
       createdAt: customContact?.createdAt || u.createdAt || new Date().toISOString()
     };
   });
@@ -84,7 +83,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
       `INSERT INTO contacts (id, user_id, contact_user_id, custom_name, created_at) VALUES (?, ?, ?, ?, ?)`,
       [newContact.id, userId, contactUserId, customName || null, newContact.createdAt]
     );
-  } catch (e) {}
+  } catch (e) { }
 
   res.json(newContact);
 });
@@ -99,7 +98,7 @@ router.delete("/contacts/:id", async (req: Request, res: Response) => {
 
   try {
     await dbExecute(`DELETE FROM contacts WHERE id = ?`, [id]);
-  } catch (e) {}
+  } catch (e) { }
 
   res.json({ message: "مخاطب با موفقیت حذف شد" });
 });

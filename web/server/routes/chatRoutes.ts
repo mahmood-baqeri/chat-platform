@@ -29,37 +29,10 @@ import { dbQuery, dbExecute } from "../db/index.js";
 import { sendRoomWSEvent, sendChatMembersWSEvent, broadcastWSEvent } from "../websocket/wsServer.js";
 import { saveBase64ToFile, generateUUIDv4 } from "../config.js";
 import webPush from "web-push";
+// ✅ import از pushService
+import { getPushConfig, getPushSubscriptions, getPushPolicy, sendNotificationToTargets } from "../services/pushService.js";
 
 const router = express.Router();
-
-// ==========================================
-// PUSH SUBSCRIPTIONS (در حافظه)
-// ==========================================
-interface PushSubscriptionItem {
-  id: number | string;
-  userId: string;
-  subscription: any;
-  createdAt: string;
-}
-
-let pushSubscriptions: PushSubscriptionItem[] = [];
-let pushPolicy: "always" | "offline_only" | "mentions_only" | "direct_only" | "disabled" = "always";
-
-// ==========================================
-// PUSH CONFIG
-// ==========================================
-let pushConfig = {
-  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || "",
-  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || "",
-  isActive: true,
-};
-
-// ==========================================
-// GET PUSH CONFIG
-// ==========================================
-function getPushConfig() {
-  return pushConfig;
-}
 
 // ==========================================
 // ENRICH MESSAGE
@@ -89,27 +62,43 @@ async function sendPushNotificationForMessage(
   msgType: string = "text"
 ) {
   try {
-    // 1. بررسی فعال بودن پوش
+    // 1. دریافت تنظیمات از سرویس
+    const pushConfig = getPushConfig();
+    const pushPolicy = getPushPolicy();
+    const pushSubscriptions = getPushSubscriptions();
+
+    console.log(`📤 sendPushNotificationForMessage called`);
+    console.log(`📊 pushConfig.isActive: ${pushConfig.isActive}`);
+    console.log(`📊 pushPolicy: ${pushPolicy}`);
+    console.log(`📊 Total pushSubscriptions from service: ${pushSubscriptions.length}`);
+
+    // 2. بررسی‌های اولیه
     if (!pushConfig.isActive || pushPolicy === "disabled") {
+      console.log("📵 Push disabled or inactive");
       return;
     }
 
     const chat = chats.find(c => c.id === chatId);
-    if (!chat) return;
+    if (!chat) {
+      console.log("❌ Chat not found");
+      return;
+    }
 
-    // 2. بررسی سیاست ارسال
     if (pushPolicy === "direct_only" && chat.type !== "direct") {
+      console.log(`📵 Push policy direct_only, chat type: ${chat.type}`);
       return;
     }
 
     const sender = users.find(u => String(u.id) === String(senderId));
     const senderName = sender ? sender.displayName : "فرستنده";
 
-    // 3. تعیین کاربران هدف
+    // 3. پیدا کردن کاربران هدف
     let targetUserIds: (number | string)[] = [];
     const memberUserIds = (chat.members || [])
       .map(m => m.userId)
       .filter(uid => String(uid) !== String(senderId));
+
+    console.log(`👥 Member user IDs: ${memberUserIds.length} members`);
 
     if (pushPolicy === "always" || pushPolicy === "direct_only") {
       targetUserIds = memberUserIds;
@@ -128,7 +117,12 @@ async function sendPushNotificationForMessage(
       });
     }
 
-    if (targetUserIds.length === 0) return;
+    if (targetUserIds.length === 0) {
+      console.log("📵 No target users");
+      return;
+    }
+
+    console.log(`🎯 Target user IDs:`, targetUserIds);
 
     // 4. گرفتن اشتراک‌های فعال
     const targetStrIds = targetUserIds.map(String);
@@ -136,20 +130,14 @@ async function sendPushNotificationForMessage(
       targetStrIds.includes(String(s.userId || ""))
     );
 
-    if (targets.length === 0) return;
+    console.log(`📱 Targets with subscriptions: ${targets.length}`);
 
-    // 5. تنظیم VAPID
-    if (!pushConfig.vapidPublicKey || !pushConfig.vapidPrivateKey) {
+    if (targets.length === 0) {
+      console.log(`📵 No push subscriptions for target users.`);
       return;
     }
 
-    webPush.setVapidDetails(
-      "mailto:admin@example.com",
-      pushConfig.vapidPublicKey,
-      pushConfig.vapidPrivateKey
-    );
-
-    // 6. ساخت پیام
+    // 5. ساخت payload
     let body = content;
     if (msgType === "image") body = "📷 تصویر";
     else if (msgType === "video") body = "🎬 ویدیو";
@@ -160,30 +148,23 @@ async function sendPushNotificationForMessage(
     else if (msgType === "location") body = "📍 موقعیت مکانی";
     else if (msgType === "contact") body = "👤 تماس";
 
-    const payload = JSON.stringify({
+    const payload = {
       title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
       body: body || content,
       icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
       url: `/?chatId=${chatId}`,
       chatId: chatId,
-    });
+    };
 
-    // 7. ارسال به همه دستگاه‌ها
-    for (const item of targets) {
-      try {
-        await webPush.sendNotification(item.subscription, payload);
-      } catch (err: any) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          const removeIdx = pushSubscriptions.findIndex(s => s.id === item.id);
-          if (removeIdx >= 0) {
-            pushSubscriptions.splice(removeIdx, 1);
-          }
-        }
-      }
-    }
+    console.log(`📤 Sending payload to ${targets.length} devices`);
 
-  } catch (error) {
-    // خطا را نادیده بگیر
+    // 6. ✅ ارسال به سرویس (نه اینجا!)
+    const result = await sendNotificationToTargets(targets, payload);
+
+    console.log(`✅ Push sent: ${result.sentCount}/${result.failCount + result.sentCount}`);
+
+  } catch (error: any) {
+    console.error("❌ Error in sendPushNotificationForMessage:", error);
   }
 }
 

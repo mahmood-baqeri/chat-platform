@@ -46,6 +46,7 @@ async function syncPushFromDB() {
           }
         } catch (e) { }
       }
+      console.log(`✅ Loaded ${pushSubscriptions.length} push subscriptions from DB`);
     }
   } catch (e) {
     console.error("Error syncing push subscriptions from DB:", e);
@@ -82,11 +83,26 @@ export function getPushSubscriptions() {
   return pushSubscriptions;
 }
 
+
+// ==========================================
+// add Push Subscription
+// ==========================================
 export async function addPushSubscription(subscription: any, userId: number | string) {
+  console.log("📥 addPushSubscription called");
+  console.log("📥 userId:", userId);
+  console.log("📥 endpoint:", subscription?.endpoint);
+
   const numericUserId = typeof userId === "number" ? userId : (parseInt(String(userId).replace(/\D/g, ""), 10) || 1);
   const uId = String(userId || "1");
   const subJson = JSON.stringify(subscription);
-  const existingIdx = pushSubscriptions.findIndex((s) => s.subscription?.endpoint === subscription.endpoint);
+
+  // بررسی وجود اشتراک
+  const existingIdx = pushSubscriptions.findIndex(
+    (s) => s.subscription?.endpoint === subscription.endpoint
+  );
+
+  console.log(`📥 Existing index: ${existingIdx}`);
+  console.log(`📥 Current subscriptions: ${pushSubscriptions.length}`);
 
   if (existingIdx >= 0) {
     pushSubscriptions[existingIdx] = {
@@ -104,12 +120,21 @@ export async function addPushSubscription(subscription: any, userId: number | st
     });
   }
 
+  console.log(`✅ pushSubscriptions after add: ${pushSubscriptions.length}`);
+
+  // ذخیره در دیتابیس
   try {
     const existing = await dbQuery(`SELECT id FROM push_subscriptions WHERE endpoint = ?`, [subscription.endpoint]);
     if (existing && existing.length > 0) {
-      await dbExecute(`UPDATE push_subscriptions SET user_id = ?, subscription_json = ? WHERE endpoint = ?`, [numericUserId, subJson, subscription.endpoint]);
+      await dbExecute(
+        `UPDATE push_subscriptions SET user_id = ?, subscription_json = ? WHERE endpoint = ?`,
+        [numericUserId, subJson, subscription.endpoint]
+      );
     } else {
-      await dbExecute(`INSERT INTO push_subscriptions (user_id, endpoint, subscription_json) VALUES (?, ?, ?)`, [numericUserId, subscription.endpoint, subJson]);
+      await dbExecute(
+        `INSERT INTO push_subscriptions (user_id, endpoint, subscription_json) VALUES (?, ?, ?)`,
+        [numericUserId, subscription.endpoint, subJson]
+      );
     }
   } catch (e) {
     console.error("Failed to persist push sub to DB:", e);
@@ -118,6 +143,9 @@ export async function addPushSubscription(subscription: any, userId: number | st
   return pushSubscriptions.length;
 }
 
+// ==========================================
+// remove Push ubscription
+// ==========================================
 export async function removePushSubscription(endpoint: string) {
   const idx = pushSubscriptions.findIndex((s) => s.subscription?.endpoint === endpoint);
   if (idx >= 0) {
@@ -131,12 +159,19 @@ export async function removePushSubscription(endpoint: string) {
   return pushSubscriptions.length;
 }
 
+// ==========================================
+// SEND Notification To Targets
+// ==========================================
 export async function sendNotificationToTargets(targets: PushSubscriptionItem[], payloadObj: any) {
   if (!pushConfig.vapidPublicKey || !pushConfig.vapidPrivateKey) {
     throw new Error("کلیدهای VAPID در سیستم تنظیم نشده‌اند.");
   }
 
-  webPush.setVapidDetails("mailto:admin@example.com", pushConfig.vapidPublicKey, pushConfig.vapidPrivateKey);
+  webPush.setVapidDetails(
+    "mailto:azaranvalveco@gmail.com",
+    pushConfig.vapidPublicKey,
+    pushConfig.vapidPrivateKey
+  );
 
   const payload = JSON.stringify(payloadObj);
   let sentCount = 0;
@@ -146,13 +181,20 @@ export async function sendNotificationToTargets(targets: PushSubscriptionItem[],
     try {
       await webPush.sendNotification(item.subscription, payload);
       sentCount++;
+      console.log(`✅ Sent to ${item.id} (${item.userId})`);
     } catch (err: any) {
       failCount++;
+      console.error(`❌ Failed to send to ${item.id} (${item.userId}):`, {
+        statusCode: err.statusCode,
+        message: err.message,
+        endpoint: item.subscription?.endpoint?.substring(0, 50) + "..."
+      });
       if (err.statusCode === 410 || err.statusCode === 404) {
         await removePushSubscription(item.subscription?.endpoint);
       }
     }
   }
 
+  console.log(`📊 Push result: ${sentCount} sent, ${failCount} failed`);
   return { sentCount, failCount };
 }

@@ -85,7 +85,12 @@ router.post("/admin/push-generate-vapid", (req, res) => {
 router.post("/subscribe", async (req, res) => {
   const { subscription, userId } = req.body;
 
+  console.log("📥 /subscribe called");
+  console.log("📥 userId:", userId);
+  console.log("📥 subscription endpoint:", subscription?.endpoint);
+
   if (!subscription || !subscription.endpoint) {
+    console.log("❌ Invalid subscription");
     return res.status(400).json({
       success: false,
       error: "ساختار Push Subscription نامعتبر است."
@@ -94,12 +99,14 @@ router.post("/subscribe", async (req, res) => {
 
   try {
     const count = await addPushSubscription(subscription, userId);
+    console.log(`✅ Subscription added. Total: ${count}`);
     res.json({
       success: true,
       message: "اشتراک Push Notification با موفقیت ثبت گردید.",
       totalSubscriptions: count,
     });
   } catch (error: any) {
+    console.error("❌ Error in /subscribe:", error);
     res.status(500).json({
       success: false,
       error: error.message || "خطا در ثبت اشتراک",
@@ -282,5 +289,4 @@ router.post("/admin/push-send", async (req, res) => {
     });
   }
 });
-
 export default router;

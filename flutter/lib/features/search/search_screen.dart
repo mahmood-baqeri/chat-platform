@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/chat/chat_bloc.dart';
-import '../../models/chat_model.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -20,7 +19,9 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 14),
+          style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontSize: 14),
           decoration: const InputDecoration(
             hintText: "جستجو در پیام‌ها، گفتگوها و آیدی‌ها...",
             border: InputBorder.none,
@@ -43,13 +44,15 @@ class _SearchScreenState extends State<SearchScreen> {
 
             if (_query.isEmpty) {
               return const Center(
-                child: Text("عبارت مورد نظر خود را برای جستجو وارد کنید", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text("عبارت مورد نظر خود را برای جستجو وارد کنید",
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
               );
             }
 
             if (filteredChats.isEmpty) {
               return const Center(
-                child: Text("نتیجه‌ای یافت نشد", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                child: Text("نتیجه‌ای یافت نشد",
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
               );
             }
 
@@ -67,11 +70,15 @@ class _SearchScreenState extends State<SearchScreen> {
                           : 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150',
                     ),
                   ),
-                  title: Text(chat.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(chat.lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Text(chat.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(chat.lastMessage,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   onTap: () {
-                    BlocProvider.of<ChatBloc>(context).add(SelectChatEvent(chat));
-                    Navigator.pushNamed(context, '/chat_detail', arguments: chat);
+                    BlocProvider.of<ChatBloc>(context)
+                        .add(SelectChatEvent(chat));
+                    Navigator.pushNamed(context, '/chat_detail',
+                        arguments: chat);
                   },
                 );
               },

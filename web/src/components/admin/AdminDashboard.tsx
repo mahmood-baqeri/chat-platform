@@ -485,16 +485,28 @@ export const AdminDashboard: React.FC = () => {
     }
 
     try {
+      // 1. دریافت VAPID Public Key از سرور
+      const response = await fetch('/api/push-public-key');
+      if (!response.ok) {
+        throw new Error("خطا در دریافت کلید VAPID از سرور");
+      }
+      const data = await response.json();
+      const vapidPublicKey = data.vapidPublicKey;
+
+      if (!vapidPublicKey) {
+        alert("کلید VAPID Public Key در سیستم تنظیم نشده است.");
+        return;
+      }
+
+      console.log("🔑 VAPID Public Key:", vapidPublicKey);
+
+      // 2. ثبت Service Worker
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
 
+      // 3. دریافت یا ایجاد اشتراک
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
-        if (!pushConfig.vapidPublicKey) {
-          alert("ابتدا باید کلید VAPID Public Key در پنل تنظیم و ذخیره شده باشد.");
-          return;
-        }
-
         const urlBase64ToUint8Array = (base64String: string) => {
           const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
           const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -508,16 +520,19 @@ export const AdminDashboard: React.FC = () => {
 
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(pushConfig.vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
         });
       }
 
+      // 4. ارسال اشتراک به سرور
       await api.subscribePush(sub, String(currentUser?.id || "admin"));
+
+      // 5. بروزرسانی لیست
       await fetchPushSettings();
-      alert("اشتراک Push مرورگر شما با موفقیت در سیستم ثبت شد.");
+      alert("✅ اشتراک Push مرورگر شما با موفقیت در سیستم ثبت شد.");
     } catch (err: any) {
       console.error("Error subscribing to Push:", err);
-      alert("خطا در ثبت اشتراک Push: " + (err.message || err));
+      alert("❌ خطا در ثبت اشتراک Push: " + (err.message || err));
     }
   };
 
@@ -820,7 +835,6 @@ export const AdminDashboard: React.FC = () => {
     .filter(
       (u) =>
         u.displayName.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
         u.phone.includes(userSearchQuery) ||
         String(u.id).toLowerCase().includes(userSearchQuery.toLowerCase())
     )
@@ -907,8 +921,8 @@ export const AdminDashboard: React.FC = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3.5 py-2.5 rounded-t-2xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${isActive
-                    ? "bg-[#121420] text-blue-400 border-t-2 border-blue-500 shadow-md"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                  ? "bg-[#121420] text-blue-400 border-t-2 border-blue-500 shadow-md"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                   }`}
               >
                 <Icon className="w-4 h-4" />
@@ -1043,7 +1057,7 @@ export const AdminDashboard: React.FC = () => {
                                 <img src={u.avatarUrl} alt={u.displayName} className="w-8 h-8 rounded-full object-cover" />
                                 <div>
                                   <p className="font-bold text-slate-100">{u.displayName}</p>
-                                  <p className="text-[10px] text-slate-400 font-mono">@{u.username}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono">@{u.personCode}</p>
                                 </div>
                               </div>
                             </td>
@@ -1071,8 +1085,8 @@ export const AdminDashboard: React.FC = () => {
                                 <button
                                   onClick={() => handleToggleBan(String(u.id))}
                                   className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${u.isBanned
-                                      ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                                      : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                                    : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                                     }`}
                                 >
                                   {u.isBanned ? "مسدودشده (Banned)" : "فعال (Active)"}
@@ -1080,8 +1094,8 @@ export const AdminDashboard: React.FC = () => {
                                 <button
                                   onClick={() => handleToggleMute(String(u.id))}
                                   className={`p-1 rounded-md text-[10px] border transition-all ${u.isMuted
-                                      ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                                      : "bg-slate-800 text-slate-400 border-slate-700"
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                    : "bg-slate-800 text-slate-400 border-slate-700"
                                     }`}
                                   title={u.isMuted ? "سکوت فعالم است" : "بی‌صدا کردن"}
                                 >
@@ -1309,8 +1323,8 @@ export const AdminDashboard: React.FC = () => {
                             <button
                               onClick={() => handleToggleWordStatus(fw)}
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${fw.isEnabled
-                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                                  : "bg-slate-800 text-slate-500 border-slate-700"
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                : "bg-slate-800 text-slate-500 border-slate-700"
                                 }`}
                             >
                               {fw.isEnabled ? "فعال (مسدودکننده)" : "غیرفعال"}
@@ -1550,8 +1564,8 @@ export const AdminDashboard: React.FC = () => {
                 {/* Notifications & Result Banners */}
                 {smsTestResult && (
                   <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${smsTestResult.success
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                     }`}>
                     {smsTestResult.success ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
@@ -1567,8 +1581,8 @@ export const AdminDashboard: React.FC = () => {
 
                 {smsSaveResult && (
                   <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${smsSaveResult.success
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                     }`}>
                     <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
                     <span>{smsSaveResult.message}</span>
@@ -1787,8 +1801,8 @@ export const AdminDashboard: React.FC = () => {
                 {/* Status Banners */}
                 {pushSaveResult && (
                   <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${pushSaveResult.success
-                      ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                     }`}>
                     <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />
                     <span>{pushSaveResult.message}</span>
@@ -2012,8 +2026,8 @@ export const AdminDashboard: React.FC = () => {
                         type="button"
                         onClick={() => setLocalSettings(prev => ({ ...prev, sessionTimeoutMinutes: preset.value }))}
                         className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer transition-all ${localSettings.sessionTimeoutMinutes === preset.value
-                            ? "bg-blue-600 text-white border-blue-500"
-                            : "bg-slate-800/60 text-slate-400 border-white/5 hover:bg-slate-800"
+                          ? "bg-blue-600 text-white border-blue-500"
+                          : "bg-slate-800/60 text-slate-400 border-white/5 hover:bg-slate-800"
                           }`}
                       >
                         {preset.label}
@@ -2098,8 +2112,8 @@ export const AdminDashboard: React.FC = () => {
                 {/* Notifications & Result Banners */}
                 {dbTestResult && (
                   <div className={`p-4 rounded-2xl border text-xs flex items-start gap-3 transition-all ${dbTestResult.success
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                     }`}>
                     {dbTestResult.success ? (
                       <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
@@ -2115,8 +2129,8 @@ export const AdminDashboard: React.FC = () => {
 
                 {dbSaveResult && (
                   <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${dbSaveResult.success
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                     }`}>
                     <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
                     <span>{dbSaveResult.message}</span>
@@ -2337,10 +2351,6 @@ export const AdminDashboard: React.FC = () => {
                 <label className="text-slate-400 block mb-1">شماره موبایل:</label>
                 <input type="text" value={editingUser.phone} onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />
               </div>
-              <div>
-                <label className="text-slate-400 block mb-1">بیوگرافی:</label>
-                <textarea value={editingUser.bio || ""} onChange={(e) => setEditingUser({ ...editingUser, bio: e.target.value })} className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-white" />
-              </div>
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-xs">انصراف</button>
@@ -2416,7 +2426,7 @@ export const AdminDashboard: React.FC = () => {
                 <select value={newMemberUserId} onChange={(e) => setNewMemberUserId(e.target.value)} className="flex-1 bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white">
                   <option value="">انتخاب کاربر جهت افزودن...</option>
                   {usersList.filter((u) => !managingRoomMembers.members.some((m) => String(m.userId) === String(u.id))).map((u) => (
-                    <option key={u.id} value={u.id}>{u.displayName} (@{u.username})</option>
+                    <option key={u.id} value={u.id}>{u.displayName} (@{u.personCode})</option>
                   ))}
                 </select>
                 <button onClick={handleAddMemberToRoom} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold shrink-0">افزودن</button>
@@ -2688,7 +2698,7 @@ export const AdminDashboard: React.FC = () => {
                     >
                       <option value="">انتخاب کاربر...</option>
                       {usersList.map((u) => (
-                        <option key={u.id} value={u.id}>{u.displayName} (@{u.username})</option>
+                        <option key={u.id} value={u.id}>{u.displayName} (@{u.personCode})</option>
                       ))}
                     </select>
                   </div>
