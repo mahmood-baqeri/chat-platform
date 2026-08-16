@@ -61,13 +61,8 @@ async function createConfigInDB(publicKey: string, privateKey: string) {
 // GENERATE AND SAVE VAPID KEYS (CORE FUNCTION)
 // ==========================================
 async function generateAndSaveVapidKeys(clearSubscriptions: boolean = true) {
-  console.log("🔑 Generating new VAPID keys...");
   const keys = webPush.generateVAPIDKeys();
-  
-  console.log("✅ Keys generated:");
-  console.log(`  - Public: ${keys.publicKey.substring(0, 30)}...`);
-  console.log(`  - Private: ${keys.privateKey.substring(0, 30)}...`);
-  
+    
   pushConfig.vapidPublicKey = keys.publicKey;
   pushConfig.vapidPrivateKey = keys.privateKey;
   pushConfig.isActive = true;
@@ -77,17 +72,13 @@ async function generateAndSaveVapidKeys(clearSubscriptions: boolean = true) {
   
   if (exists) {
     await saveConfigToDB();
-    console.log("✅ VAPID keys updated in DB");
   } else {
     await createConfigInDB(keys.publicKey, keys.privateKey);
-    console.log("✅ VAPID keys created in DB");
   }
   
   // پاک کردن اشتراک‌های قبلی (اگر درخواست شده باشد)
   if (clearSubscriptions) {
-    console.log("🗑️ Clearing old subscriptions...");
     await clearAllSubscriptions();
-    console.log("✅ All old subscriptions cleared");
   }
   
   return keys;
@@ -97,17 +88,12 @@ async function generateAndSaveVapidKeys(clearSubscriptions: boolean = true) {
 // CLEAR ALL SUBSCRIPTIONS
 // ==========================================
 async function clearAllSubscriptions() {
-  try {
-    console.log("🗑️ Starting to clear all subscriptions...");
-    
+  try {    
     const count = await dbQuery(`SELECT COUNT(*) as count FROM push_subscriptions`);
-    console.log(`📊 Found ${count[0]?.count || 0} subscriptions to clear`);
     
     await dbExecute(`DELETE FROM push_subscriptions`);
     pushSubscriptions = [];
-    
-    console.log("🗑️ All push subscriptions cleared successfully");
-    
+        
   } catch (error: any) {
     console.error("❌ Failed to clear subscriptions:", error);
     throw error;
@@ -118,32 +104,22 @@ async function clearAllSubscriptions() {
 // INITIALIZE - از دیتابیس میخواند
 // ==========================================
 export async function initPushService() {
-  try {
-    console.log("🔄 Initializing Push Service...");
-    
+  try {    
     const configExists = await loadConfigFromDB();
     
     if (configExists) {
       console.log("✅ Loaded push settings from DB:");
-      console.log(`  - Public Key: ${pushConfig.vapidPublicKey?.substring(0, 30)}...`);
-      console.log(`  - Private Key: ${pushConfig.vapidPrivateKey?.substring(0, 30)}...`);
-      console.log(`  - Is Active: ${pushConfig.isActive}`);
     } else {
-      console.log("⚠️ No push settings in DB, creating new...");
       await generateAndSaveVapidKeys(true);
-      console.log("✅ New VAPID keys generated and saved to DB");
     }
     
     await syncPushFromDB();
-    console.log(`✅ Push Service initialized successfully`);
-    console.log(`📊 Total subscriptions: ${pushSubscriptions.length}`);
     
   } catch (error: any) {
     console.error("❌ Error initializing push service:", error);
     if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       pushConfig.vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
       pushConfig.vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-      console.log("⚠️ Using fallback from environment variables");
     }
   }
 }
@@ -170,7 +146,6 @@ async function syncPushFromDB() {
           console.error(`❌ Failed to parse subscription ${r.id}:`, e);
         }
       }
-      console.log(`✅ Loaded ${pushSubscriptions.length} push subscriptions from DB`);
     } else {
       console.log("ℹ️ No push subscriptions found in DB");
     }
@@ -218,7 +193,6 @@ export async function updatePushConfig(config: Partial<PushConfig>) {
     if (config.isActive !== undefined) pushConfig.isActive = config.isActive;
     
     await saveConfigToDB();
-    console.log("✅ Push settings updated in DB");
     return pushConfig;
     
   } catch (error: any) {
@@ -234,7 +208,6 @@ export async function generateNewVapidKeys() {
   try {
     // تولید کلید جدید و پاک کردن اشتراک‌ها
     const keys = await generateAndSaveVapidKeys(true);
-    console.log("✅ New VAPID keys generated and old subscriptions cleared");
     return keys;
   } catch (error: any) {
     console.error("❌ Failed to generate VAPID keys:", error);
@@ -246,11 +219,7 @@ export async function generateNewVapidKeys() {
 // ADD SUBSCRIPTION
 // ==========================================
 export async function addPushSubscription(subscription: any, userId: number | string) {
-  try {
-    console.log("📥 addPushSubscription called");
-    console.log(`📥 userId: ${userId}`);
-    console.log(`📥 endpoint: ${subscription?.endpoint?.substring(0, 50)}...`);
-    
+  try {    
     const numericUserId = typeof userId === "number" ? userId : (parseInt(String(userId), 10) || 1);
     const uId = String(numericUserId);
     const subJson = JSON.stringify(subscription);
@@ -267,7 +236,6 @@ export async function addPushSubscription(subscription: any, userId: number | st
         subscription: subscription,
         createdAt: new Date().toISOString(),
       };
-      console.log(`📝 Updated existing subscription`);
     } else {
       pushSubscriptions.push({
         id: pushSubscriptions.length + 1,
@@ -275,7 +243,6 @@ export async function addPushSubscription(subscription: any, userId: number | st
         subscription: subscription,
         createdAt: new Date().toISOString(),
       });
-      console.log(`➕ Added new subscription, total: ${pushSubscriptions.length}`);
     }
     
     // ذخیره در دیتابیس
@@ -296,7 +263,6 @@ export async function addPushSubscription(subscription: any, userId: number | st
       );
     }
     
-    console.log(`✅ Subscription saved to DB`);
     return pushSubscriptions.length;
     
   } catch (error: any) {
@@ -311,7 +277,6 @@ export async function addPushSubscription(subscription: any, userId: number | st
 export async function removePushSubscription(endpoint: string) {
   try {
     if (!endpoint) {
-      console.log("⚠️ No endpoint provided for removal");
       return pushSubscriptions.length;
     }
     
@@ -319,12 +284,10 @@ export async function removePushSubscription(endpoint: string) {
     const idx = pushSubscriptions.findIndex((s) => s.subscription?.endpoint === endpoint);
     if (idx >= 0) {
       pushSubscriptions.splice(idx, 1);
-      console.log(`🗑️ Removed subscription from memory, remaining: ${pushSubscriptions.length}`);
     }
     
     // حذف از دیتابیس
     await dbExecute(`DELETE FROM push_subscriptions WHERE endpoint = ?`, [endpoint]);
-    console.log(`🗑️ Removed subscription from DB`);
     
     return pushSubscriptions.length;
     
@@ -338,12 +301,7 @@ export async function removePushSubscription(endpoint: string) {
 // SEND NOTIFICATION
 // ==========================================
 export async function sendNotificationToTargets(targets: PushSubscriptionItem[], payloadObj: any) {
-  try {
-    console.log("📤 sendNotificationToTargets called");
-    console.log(`📤 Targets: ${targets.length}`);
-    console.log(`🔑 VAPID Public Key exists: ${!!pushConfig.vapidPublicKey}`);
-    console.log(`🔑 VAPID Private Key exists: ${!!pushConfig.vapidPrivateKey}`);
-    
+  try {    
     if (!pushConfig.vapidPublicKey || !pushConfig.vapidPrivateKey) {
       throw new Error("کلیدهای VAPID در سیستم تنظیم نشده‌اند.");
     }
@@ -358,20 +316,15 @@ export async function sendNotificationToTargets(targets: PushSubscriptionItem[],
     let sentCount = 0;
     let failCount = 0;
     
-    console.log(`📨 Sending to ${targets.length} devices...`);
-    
     for (const item of targets) {
       try {
         if (!item.subscription || !item.subscription.endpoint) {
-          console.log(`⚠️ Invalid subscription for ${item.id}`);
           failCount++;
           continue;
         }
         
         await webPush.sendNotification(item.subscription, payload);
-        sentCount++;
-        console.log(`✅ Sent to ${item.id} (user: ${item.userId})`);
-        
+        sentCount++;        
       } catch (err: any) {
         failCount++;
         console.error(`❌ Failed to send to ${item.id}:`, {
@@ -380,13 +333,11 @@ export async function sendNotificationToTargets(targets: PushSubscriptionItem[],
         });
         
         if (err.statusCode === 410 || err.statusCode === 404) {
-          console.log(`🗑️ Removing expired subscription: ${item.id}`);
           await removePushSubscription(item.subscription?.endpoint);
         }
       }
     }
     
-    console.log(`📊 Push result: ${sentCount} sent, ${failCount} failed`);
     return { sentCount, failCount };
     
   } catch (error: any) {
@@ -399,9 +350,7 @@ export async function sendNotificationToTargets(targets: PushSubscriptionItem[],
 // RELOAD DATA
 // ==========================================
 export async function reloadPushData() {
-  console.log("🔄 Reloading push data from database...");
   await loadConfigFromDB();
   await syncPushFromDB();
-  console.log("✅ Push data reloaded");
   return { config: pushConfig, subscriptions: pushSubscriptions.length };
 }

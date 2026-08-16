@@ -24,7 +24,7 @@ import {
 import { dbExecute, dbQuery } from "../db/index.js";
 import { broadcastWSEvent, sendRoomWSEvent, wsClients } from "../websocket/wsServer.js";
 import { saveBase64ToFile } from "../config.js";
-import { dbGet } from "@/src/utils/helper.js";
+import { dbGet, getUserById } from "@/src/utils/helper.js";
 
 const router = express.Router();
 
@@ -369,23 +369,14 @@ router.post("/admin/rooms/:chatId/members", async (req: Request, res: Response) 
     const chatInMemory = chats.find(c => c.id === chatId);
     if (!chatInMemory) return res.status(404).json({ error: "گفتگو یافت نشد" });
     
-    if (chatInMemory) {
-      chatInMemory.members.push({
-        userId: Number(userId),
-        role: role || "user",
-        joinedAt: now,
-        isMuted: false,
-      });
-      chatInMemory.memberCount = chatInMemory.members.length;
-    }
-    
     
     const chat = await dbGet(`SELECT * FROM rooms WHERE id = ?`, [chatId]);
     if (!chat) {
       return res.status(404).json({ error: "گفتگو یافت نشد" });
     }
 
-    const user = await dbGet(`SELECT * FROM users WHERE id = ?`, [userId]);
+    const user = await getUserById(userId);
+    // const user = await dbGet(`SELECT * FROM users WHERE id = ?`, [userId]);
     if (!user) {
       return res.status(404).json({ error: "کاربر یافت نشد" });
     }
@@ -419,16 +410,17 @@ router.post("/admin/rooms/:chatId/members", async (req: Request, res: Response) 
       [chatId, userId]
     );
 
-
+    
+    chatInMemory.members.push({
+      userId: Number(userId),
+      userDisplayname : user.displayName,
+      role: role || "user",
+      joinedAt: now,
+      isMuted: false,
+    });
+    chatInMemory.memberCount = chatInMemory.members.length;
     res.json(chatInMemory);
 
-    // sendRoomWSEvent(chatId, "member:added", newMember);
-
-    // res.status(201).json({
-    //   success: true,
-    //   message: "کاربر با موفقیت به گفتگو اضافه شد",
-    //   member: newMember
-    // });
 
   } catch (error) {
     console.error("Error adding member:", error);
@@ -540,6 +532,7 @@ router.post("/admin/rooms/:chatId/transfer-owner", async (req: Request, res: Res
       member.role = "owner";
     } else {
       chatInMemory.members.push({
+        userDisplayname: user.displayName,
         userId: newOwnerId,
         role: "owner",
         joinedAt: new Date().toISOString(),
@@ -578,6 +571,11 @@ router.post("/admin/groups", async (req: Request, res: Response) => {
   const { title, description, isPrivate, ownerId, avatarUrl } = req.body;
   const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "group_" + Date.now()) : AvatarPhoto;
 
+  const user = await getUserById(ownerId);
+  if (!user) {
+    return res.status(404).json({ error: "کاربر یافت نشد" });
+  }
+  
   const numOwnerId = typeof ownerId === "number" ? ownerId : (parseInt(String(ownerId).replace(/\D/g, ""), 10) || 1);
   const newGroup: Chat = {
     id: "chat-group-" + Date.now(),
@@ -589,7 +587,7 @@ router.post("/admin/groups", async (req: Request, res: Response) => {
     isPrivate: !!isPrivate,
     ownerId: numOwnerId,
     members: [
-      { userId: numOwnerId, role: "owner", joinedAt: new Date().toISOString(), isMuted: false }
+      { userId: numOwnerId, userDisplayname:user.displayName, role: "owner", joinedAt: new Date().toISOString(), isMuted: false }
     ],
     memberCount: 1,
     unreadCount: 0,
@@ -673,6 +671,12 @@ router.post("/admin/channels", async (req: Request, res: Response) => {
   const savedAvatar = avatarUrl ? saveBase64ToFile(avatarUrl, "channel_" + Date.now()) : AvatarPhoto;
 
   const numOwnerId = typeof ownerId === "number" ? ownerId : (parseInt(String(ownerId).replace(/\D/g, ""), 10) || 1);
+  
+  const user = await getUserById(ownerId);
+  if (!user) {
+    return res.status(404).json({ error: "کاربر یافت نشد" });
+  }
+  
   const newChannel: Chat = {
     id: "chat-channel-" + Date.now(),
     type: "channel",
@@ -683,7 +687,7 @@ router.post("/admin/channels", async (req: Request, res: Response) => {
     isPrivate: !!isPrivate,
     ownerId: numOwnerId,
     members: [
-      { userId: numOwnerId, role: "owner", joinedAt: new Date().toISOString(), isMuted: false }
+      { userId: numOwnerId, userDisplayname:user.displayName, role: "owner", joinedAt: new Date().toISOString(), isMuted: false }
     ],
     memberCount: 1,
     unreadCount: 0,

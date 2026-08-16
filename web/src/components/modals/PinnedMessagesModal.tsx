@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useChat } from "../../store/chatContext";
 import { X, Pin, PinOff, Search, Image as ImageIcon, FileText, Music, Video, User } from "lucide-react";
 import { Message } from "../../types";
+import { ShowImage } from "@/src/utils/showImage";
 
 export const PinnedMessagesModal: React.FC = () => {
   const {
@@ -53,17 +54,17 @@ export const PinnedMessagesModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[#1A1D2B] border border-white/10 rounded-3xl p-6 w-full max-w-xl max-h-[85vh] text-white shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+      <div className="bg-[var(--bg)] border border-[var(--border)] rounded-3xl p-6 w-full max-w-xl max-h-[85vh] text-white shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/10">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/10">
               <Pin className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2">
-                <span>پیام‌های سنجاق‌شده (Pinned)</span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-mono font-bold border border-amber-500/30">
+                <span className="text-[var(--text-primary)]">پیام‌های سنجاق‌شده</span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-mono font-bold border border-cyan-500/30">
                   {pinnedMessages.length}
                 </span>
               </h3>
@@ -86,7 +87,7 @@ export const PinnedMessagesModal: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="جستجو بین پیام‌های پین‌شده..."
-            className="w-full bg-[#141724] border border-white/10 rounded-2xl pr-10 pl-4 py-2.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none placeholder-slate-500 transition-all"
+            className="w-full border border border-[var(--border)] rounded-2xl pr-10 pl-4 py-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder-slate-500 transition-all"
           />
         </div>
 
@@ -106,16 +107,15 @@ export const PinnedMessagesModal: React.FC = () => {
                 <div
                   key={msg.id}
                   onClick={() => handleJumpToMessage(String(msg.id))}
-                  className="p-3.5 rounded-2xl bg-[#141724] border border-white/5 hover:border-amber-500/40 hover:bg-white/5 transition-all cursor-pointer group flex items-start gap-3 relative"
+                  className="p-3.5 rounded-2xl border border border-[var(--border)] hover:border-cyan-500/40 hover:bg-white/5 transition-all cursor-pointer group flex items-start gap-3 relative"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-white/5 text-slate-300">
-                    <User className="w-4 h-4" />
-                  </div>
+
+                  <ShowImage src={msg.senderAvatar} className="w-9 h-9 rounded-full object-cover ring-2 ring-cyan-500/20 group-hover:ring-cyan-500 transition-all" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs text-amber-400">
-                        {msg.senderId === "user-1" ? "علی رضایی" : "کاربر سیستم"}
+                      <span className="font-bold text-xs text-cyan-500">
+                        {msg.senderName}
                       </span>
                       <span className="text-[10px] text-slate-500 font-mono">
                         {new Date(msg.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}
@@ -123,7 +123,7 @@ export const PinnedMessagesModal: React.FC = () => {
                     </div>
 
                     {msg.content && (
-                      <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed mb-2">
+                      <p className="text-xs text-[var(--text-primary)]/50 line-clamp-2 leading-relaxed mb-2">
                         {msg.content}
                       </p>
                     )}
@@ -141,7 +141,7 @@ export const PinnedMessagesModal: React.FC = () => {
                           <FileText className="w-6 h-6 text-cyan-400" />
                         )}
                         <div className="min-w-0 flex-1 text-[11px]">
-                          <p className="font-semibold text-slate-200 truncate">{attachment.name}</p>
+                          <p className="font-semibold text-[var(--text-primary)]/50 truncate">{attachment.name}</p>
                           <p className="text-[10px] text-slate-400 font-mono">
                             {(attachment.size / 1024).toFixed(0)} KB
                           </p>

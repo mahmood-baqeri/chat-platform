@@ -53,12 +53,12 @@ export const SearchModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#181B28] border border-white/10 rounded-3xl p-5 max-w-lg w-full shadow-2xl text-white space-y-4">
+      <div className="bg-[var(--bg)] border border-white/10 rounded-3xl p-5 max-w-lg w-full shadow-2xl text-white space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
-            <Search className="w-5 h-5 text-blue-400" />
-            <h3 className="text-sm font-bold">جستجو در گفتگو ({activeChat.title})</h3>
+            <Search className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">جستجو در گفتگو ({activeChat.title})</h3>
           </div>
           <button
             onClick={() => setShowSearchModal(false)}
@@ -76,11 +76,11 @@ export const SearchModal: React.FC = () => {
             onChange={handleSearchChange}
             placeholder="کلمه یا متن مورد نظر را تایپ کنید..."
             autoFocus
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pr-10 pl-10 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
+            className="w-full bg-white/5 border border-[var(--border)] rounded-2xl py-3 pr-10 pl-10 text-xs text-[var(--text-primary)] placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 transition-all"
           />
           <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
           {isSearching ? (
-            <Loader2 className="w-4 h-4 text-blue-400 absolute left-3.5 top-3.5 animate-spin" />
+            <Loader2 className="w-4 h-4 text-cyan-400 absolute left-3.5 top-3.5 animate-spin" />
           ) : query ? (
             <button
               onClick={() => {
@@ -103,7 +103,7 @@ export const SearchModal: React.FC = () => {
             </div>
           ) : isSearching ? (
             <div className="py-12 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
               <span>در حال جستجو بین پیام‌ها...</span>
             </div>
           ) : searchResults.length === 0 ? (
@@ -114,22 +114,22 @@ export const SearchModal: React.FC = () => {
           ) : (
             <div className="space-y-2">
               <p className="text-[10px] text-slate-400 font-bold px-1">
-                {searchResults.length} پیام پیدا شد:
+                پیام پیدا شد: {searchResults.length}
               </p>
               {searchResults.map((msg) => (
                 <div
                   key={msg.id}
                   onClick={() => handleSelectResult(String(msg.id))}
-                  className="p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-blue-500/30 transition-all cursor-pointer group"
+                  className="p-3 rounded-2xl bg-white/5 border border-[var(--border)] hover:bg-white/10 hover:border-cyan-500/30 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                    <span className="font-semibold text-blue-300 flex items-center gap-1">
+                    <span className="font-semibold text-cyan-300 flex items-center gap-1">
                       <User className="w-3 h-3" />
-                      <span>{msg.senderName || "کاربر"}</span>
+                      <span className="">{msg.senderName || "کاربر"}</span>
                     </span>
                     <span className="font-mono text-[10px]">{formatTime(msg.createdAt)}</span>
                   </div>
-                  <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed font-sans">
+                  <p className="text-xs text-[var(--text-primary)]/50 line-clamp-2 leading-relaxed font-sans">
                     {msg.content}
                   </p>
                 </div>

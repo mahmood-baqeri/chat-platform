@@ -97,3 +97,29 @@ body {
   border: 1px solid !important;
   font-size: 20px !important;
 }
+
+body,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+div,
+span {
+  /* font-family: Yekan Bakh FaNum ExtraCondensed !important;
+      font-family: Yekan Bakh FaNum ExtraExpanded !important; */
+  /* font-family: Yekan Bakh FaNum Expanded !important; */
+  /* font-family: Yekan Bakh FaNum SemiExpanded !important; */
+  /* font-family: Yekan Bakh FaNum !important; */
+  /* font-family: Yekan Bakh ExtraCondensed !important; */
+  /* font-family: Yekan Bakh Condensed !important; */
+  /* font-family: Yekan Bakh SemiCondensed !important; */
+  font-family: Yekan Bakh FaNum, Yekan Bakh;
+}
+
+
+.font-vazir {
+  font-family: Vazirmatn, system-ui, -apple-system, sans-serif !important;
+}

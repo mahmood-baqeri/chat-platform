@@ -447,22 +447,41 @@ export async function loadDataFromDB() {
 
     // Rooms & Members
     const dbRooms = await dbQuery("SELECT * FROM rooms");
-    const dbMembers = await dbQuery("SELECT * FROM room_members");
+    // دریافت اعضا با نام نمایشی از جدول users
+    const dbMembersWithUser = await dbQuery(`
+      SELECT 
+        rm.*,
+        u.display_name as userDisplayname
+      FROM room_members rm
+      LEFT JOIN users u ON rm.user_id = u.id
+    `);
 
     if (dbRooms.length > 0) {
+      // ساخت Map از userId به displayName
+      const userDisplayMap = new Map();
+      dbMembersWithUser.forEach((m: any) => {
+        if (m.user_id && m.userDisplayname) {
+          userDisplayMap.set(String(m.user_id), m.userDisplayname);
+        }
+      });
+
       chats = dbRooms.map((r: any) => {
-        let roomM = dbMembers
+        // فیلتر کردن اعضای این روم و گرفتن نام نمایشی
+        const roomM = dbMembersWithUser
           .filter((m: any) => String(m.room_id) === String(r.id))
           .map((m: any) => ({
             userId: m.user_id,
+            userDisplayname: m.userDisplayname || String(m.user_id),
             role: m.role || "user",
             joinedAt: m.joined_at,
             isMuted: !!m.is_muted
           }));
 
+        // اضافه کردن owner
         if (r.owner_id && !roomM.some((m: any) => String(m.userId) === String(r.owner_id))) {
           roomM.push({
             userId: r.owner_id,
+            userDisplayname: userDisplayMap.get(String(r.owner_id)) || String(r.owner_id),
             role: "owner",
             joinedAt: r.created_at || new Date().toISOString(),
             isMuted: false
@@ -488,6 +507,7 @@ export async function loadDataFromDB() {
         };
       });
     }
+
 
     // Messages
     const dbMsgs = await dbQuery("SELECT * FROM messages ORDER BY created_at ASC");

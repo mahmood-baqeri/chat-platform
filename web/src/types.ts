@@ -167,6 +167,7 @@ export interface Message {
 
 export interface ChatMember {
   userId: number | string;
+  userDisplayname: string;
   role: UserRole;
   joinedAt: string;
   isMuted: boolean;

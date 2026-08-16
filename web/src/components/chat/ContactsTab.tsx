@@ -89,8 +89,8 @@ export const ContactsTab: React.FC = () => {
           title: contact.displayName || contact.customName || "گفتگوی شخصی",
           avatarUrl: contact.avatarUrl,
           members: [
-            { userId: currentUser.id, role: "owner", joinedAt: new Date().toISOString(), isMuted: false },
-            { userId: contact.contactUserId, role: "user", joinedAt: new Date().toISOString(), isMuted: false },
+            { userId: currentUser.id, userDisplayname: currentUser.displayName, role: "owner", joinedAt: new Date().toISOString(), isMuted: false },
+            { userId: contact.contactUserId, userDisplayname: contact.displayName, role: "user", joinedAt: new Date().toISOString(), isMuted: false },
           ],
         });
 
@@ -134,9 +134,8 @@ export const ContactsTab: React.FC = () => {
               <div className="relative shrink-0">
                 <ShowImage src={contact.avatarUrl} className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/20 group-hover:ring-emerald-500 transition-all" />
                 <span
-                  className={`w-3 h-3 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5 ${
-                    contact.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
-                  }`}
+                  className={`w-3 h-3 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5 ${contact.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
+                    }`}
                   title={contact.status === "online" ? "آنلاین" : "آفلاین"}
                 />
               </div>

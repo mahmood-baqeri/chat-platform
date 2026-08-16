@@ -2,7 +2,7 @@ import React from "react";
 import { ChatProvider, useChat } from "./store/chatContext";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
-import { ChatPane } from "./components/chat/ChatPane";
+import { ChatPane } from "./components/chat/ChatPage";
 import { GroupInfoDrawer } from "./components/chat/GroupInfoDrawer";
 import { NewChatModal } from "./components/modals/NewChatModal";
 import { AuthModal } from "./components/modals/AuthModal";

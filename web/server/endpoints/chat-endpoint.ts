@@ -67,25 +67,17 @@ async function sendPushNotificationForMessage(
     const pushPolicy = getPushPolicy();
     const pushSubscriptions = getPushSubscriptions();
 
-    console.log(`📤 sendPushNotificationForMessage called`);
-    console.log(`📊 pushConfig.isActive: ${pushConfig.isActive}`);
-    console.log(`📊 pushPolicy: ${pushPolicy}`);
-    console.log(`📊 Total pushSubscriptions from service: ${pushSubscriptions.length}`);
-
     // 2. بررسی‌های اولیه
     if (!pushConfig.isActive || pushPolicy === "disabled") {
-      console.log("📵 Push disabled or inactive");
       return;
     }
 
     const chat = chats.find(c => c.id === chatId);
     if (!chat) {
-      console.log("❌ Chat not found");
       return;
     }
 
     if (pushPolicy === "direct_only" && chat.type !== "direct") {
-      console.log(`📵 Push policy direct_only, chat type: ${chat.type}`);
       return;
     }
 
@@ -97,8 +89,6 @@ async function sendPushNotificationForMessage(
     const memberUserIds = (chat.members || [])
       .map(m => m.userId)
       .filter(uid => String(uid) !== String(senderId));
-
-    console.log(`👥 Member user IDs: ${memberUserIds.length} members`);
 
     if (pushPolicy === "always" || pushPolicy === "direct_only") {
       targetUserIds = memberUserIds;
@@ -118,11 +108,8 @@ async function sendPushNotificationForMessage(
     }
 
     if (targetUserIds.length === 0) {
-      console.log("📵 No target users");
       return;
-    }
-
-    console.log(`🎯 Target user IDs:`, targetUserIds);
+    };
 
     // 4. گرفتن اشتراک‌های فعال
     const targetStrIds = targetUserIds.map(String);
@@ -130,10 +117,7 @@ async function sendPushNotificationForMessage(
       targetStrIds.includes(String(s.userId || ""))
     );
 
-    console.log(`📱 Targets with subscriptions: ${targets.length}`);
-
     if (targets.length === 0) {
-      console.log(`📵 No push subscriptions for target users.`);
       return;
     }
 
@@ -156,12 +140,8 @@ async function sendPushNotificationForMessage(
       chatId: chatId,
     };
 
-    console.log(`📤 Sending payload to ${targets.length} devices`);
-
     // 6. ✅ ارسال به سرویس (نه اینجا!)
     const result = await sendNotificationToTargets(targets, payload);
-
-    console.log(`✅ Push sent: ${result.sentCount}/${result.failCount + result.sentCount}`);
 
   } catch (error: any) {
     console.error("❌ Error in sendPushNotificationForMessage:", error);

@@ -114,7 +114,7 @@ export const Sidebar: React.FC = () => {
           <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
             <span>گفت‌وگوها</span>
             {totalUnread > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-blue-500 text-white font-mono text-[10px] font-bold">
+              <span className="w-5 h-5 flex items-center justify-center rounded-full bg-cyan-500 text-white font-mono text-[10px] font-bold">
                 {totalUnread}
               </span>
             )}
@@ -153,15 +153,14 @@ export const Sidebar: React.FC = () => {
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar text-xs">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === "all"
-                ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-            }`}
+            className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === "all"
+              ? "bg-blue-500/10 text-cyan-400 border border-blue-500/30"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              }`}
           >
             <span>همه ({chats.length})</span>
             {totalUnread > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-blue-500 text-white text-[9px] font-bold">
+              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-cyan-500 text-white text-[9px]">
                 {totalUnread}
               </span>
             )}
@@ -170,11 +169,10 @@ export const Sidebar: React.FC = () => {
           {/* Contacts Tab Button */}
           <button
             onClick={() => setActiveTab("contacts")}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === "contacts"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-            }`}
+            className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === "contacts"
+              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
             <span>مخاطبین</span>
@@ -182,15 +180,14 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={() => setActiveTab("direct")}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-              activeTab === "direct"
-                ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-            }`}
+            className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === "direct"
+              ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              }`}
           >
             <span>شخصی</span>
             {directUnread > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[9px] font-bold">
+              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-emerald-500 text-white text-[9px]">
                 {directUnread}
               </span>
             )}
@@ -198,15 +195,14 @@ export const Sidebar: React.FC = () => {
           {systemSettings.groupsEnabled && (
             <button
               onClick={() => setActiveTab("group")}
-              className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                activeTab === "group"
-                  ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              }`}
+              className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === "group"
+                ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                }`}
             >
               <span>گروه‌ها</span>
               {groupUnread > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500 text-white text-[9px] font-bold">
+                <span className="w-4 h-4 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[9px]">
                   {groupUnread}
                 </span>
               )}
@@ -215,30 +211,20 @@ export const Sidebar: React.FC = () => {
           {systemSettings.channelsEnabled && (
             <button
               onClick={() => setActiveTab("channel")}
-              className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                activeTab === "channel"
-                  ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              }`}
+              className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === "channel"
+                ? "bg-blue-500/10 text-blue-400 border border-blue-500/30"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                }`}
             >
               <span>کانال‌ها</span>
               {channelUnread > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-blue-500 text-white text-[9px] font-bold">
+                <span className="w-4 h-4 flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px]">
                   {channelUnread}
                 </span>
               )}
             </button>
           )}
-          <button
-            onClick={() => setActiveTab("pinned")}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-all ${
-              activeTab === "pinned"
-                ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-            }`}
-          >
-            پین‌شده
-          </button>
+
         </div>
       </div>
 
@@ -264,11 +250,10 @@ export const Sidebar: React.FC = () => {
                 <div
                   key={chat.id}
                   onClick={() => selectChat(chat.id)}
-                  className={`p-3 rounded-xl cursor-pointer transition-all my-0.5 flex items-center gap-3 relative group border-r-3 ${
-                    isSelected
-                      ? "bg-blue-500/10 border-blue-500 text-[var(--text-primary)] shadow-sm"
-                      : "border-transparent hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                  }`}
+                  className={`p-3 rounded-xl cursor-pointer transition-all my-0.5 flex items-center gap-3 relative group border-r-3 ${isSelected
+                    ? "bg-cyan-500/10 border-cyan-500 text-[var(--text-primary)] shadow-sm"
+                    : "border-transparent hover:bg-black/5 dark:hover:bg-white/5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
                 >
                   {/* Avatar with type indicator */}
                   <div className="relative shrink-0">
@@ -295,7 +280,7 @@ export const Sidebar: React.FC = () => {
                         {chat.lastMessage ? (
                           <>
                             {chat.lastMessage.status === "seen" ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                              <CheckCheck className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                             ) : (
                               <Check className="w-3.5 h-3.5 text-[var(--text-secondary)] shrink-0" />
                             )}
@@ -309,9 +294,9 @@ export const Sidebar: React.FC = () => {
                       </p>
 
                       <div className="flex items-center gap-1 shrink-0 mr-1">
-                        {chat.isPinned && <Pin className="w-3 h-3 text-amber-500 fill-amber-500/20" />}
+                        {chat.isPinned && <Pin className="w-4 h-4 text-amber-500 fill-amber-500/20" />}
                         {chat.unreadCount > 0 && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-white font-bold text-[10px] min-w-[18px] text-center shadow-sm shadow-blue-500/30">
+                          <span className="w-4 h-4 flex items-center justify-center rounded-full bg-cyan-500 text-white text-[10px] shadow-sm shadow-blue-500/30">
                             {chat.unreadCount}
                           </span>
                         )}

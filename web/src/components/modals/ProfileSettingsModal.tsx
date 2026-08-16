@@ -263,7 +263,7 @@ export const ProfileSettingsModal: React.FC = () => {
         {/* Profile Form */}
         <form onSubmit={handleUpdate} className="space-y-4 mb-6">
           {/* Avatar */}
-          <div className="flex items-center gap-4 bg-slate-800/80 p-3 rounded-2xl border border-slate-700/80">
+          <div className="flex items-center gap-4 p-3 rounded-2xl border border-slate-700/80 bg-[var(--bg)]">
             <div className="relative group">
               <ShowImage src={avatarUrl} className="w-14 h-14 rounded-full object-cover ring-2 ring-cyan-500/40" />
               <label className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
@@ -272,7 +272,7 @@ export const ProfileSettingsModal: React.FC = () => {
               </label>
             </div>
             <div className="flex-1">
-              <p className="text-xs font-bold text-slate-200">تصویر پروفایل</p>
+              <p className="text-xs font-bold text-[var(--text-primary)]/50">تصویر پروفایل</p>
               <p className="text-[10px] text-slate-400 mt-0.5">برای تغییر تصویر روی عکس کلیک کنید</p>
               <label className="inline-block mt-1.5 px-3 py-1 rounded-lg bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold cursor-pointer hover:bg-cyan-600/30">
                 تغییر تصویر
@@ -322,7 +322,7 @@ export const ProfileSettingsModal: React.FC = () => {
         </form>
 
         {/* Logout */}
-        <div className="pt-4 border-t border-slate-800">
+        <div className="pt-4 border-t border-slate-800 flex justify-end">
           <button
             onClick={logout}
             className="text-[11px] text-rose-400 flex items-center gap-1 cursor-pointer hover:text-rose-300 transition-colors"

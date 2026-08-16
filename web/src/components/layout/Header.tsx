@@ -28,18 +28,18 @@ export const Header: React.FC = () => {
     <header className="h-16 bg-[var(--sidebar)] backdrop-blur-md border-b border-[var(--border)] text-[var(--text-primary)] px-4 flex items-center justify-between z-30 shrink-0 transition-colors duration-200">
       {/* Brand & Status */}
       <div className="flex items-center gap-3">
-        <div className="w-30 h-10">
-          <ShowImage src={LogoPhoto} className="w-30 h-10" />
+        <div className="w-35 h-10">
+          <ShowImage src={LogoPhoto} className="w-35 h-10" />
         </div>
         <div>
           <h1 className="font-bold text-base tracking-tight flex items-center gap-2">
             <span>فیــــدار</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 border border-cyan-500/20 font-vazir">
               v2.5 Pro
             </span>
           </h1>
           <p className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
             <span>آنلاین</span>
           </p>
         </div>
@@ -62,7 +62,7 @@ export const Header: React.FC = () => {
           title="تغییر تم (تاریک / روشن)"
           className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--list)] transition-colors cursor-pointer"
         >
-          {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+          {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-cyan-500" />}
         </button>
 
         {/* Admin Dashboard Button - Rendered ONLY if user has admin permission */}
@@ -95,7 +95,7 @@ export const Header: React.FC = () => {
                   alt={currentUser.displayName}
                   className="w-8 h-8 rounded-xl object-cover ring-2 ring-blue-500/30 group-hover:ring-blue-500 transition-all"
                 />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5" />
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5" />
               </div>
               <div className="hidden lg:block text-right">
                 <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight">
@@ -109,7 +109,7 @@ export const Header: React.FC = () => {
             onClick={() => setShowAuthModal(true)}
             className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-all shadow-md shadow-blue-500/20"
           >
-            ورود / ثبت‌نام
+            ورود
           </button>
         )}
       </div>
