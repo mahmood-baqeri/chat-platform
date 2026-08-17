@@ -1,3 +1,5 @@
+// web/src/services/websocket.ts
+
 type EventCallback = (data: any) => void;
 
 class WebSocketClient {
@@ -11,12 +13,10 @@ class WebSocketClient {
     this.userId = userId;
     this.isExplicitDisconnect = false;
 
-    // Prevent duplicate active/connecting sockets
     if (this.ws) {
       if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
         return;
       }
-      // Clean up previous dead socket handlers before opening new one
       this.ws.onopen = null;
       this.ws.onmessage = null;
       this.ws.onclose = null;
@@ -109,6 +109,16 @@ class WebSocketClient {
 
   disconnect() {
     this.isExplicitDisconnect = true;
+    
+    // ✅ ارسال سیگنال logout قبل از قطع اتصال
+    if (this.userId && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.send("user:logout", { userId: this.userId });
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -123,6 +133,11 @@ class WebSocketClient {
       }
       this.ws = null;
     }
+  }
+  
+  // ✅ متد برای بررسی اتصال
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
 }
 

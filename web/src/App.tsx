@@ -1,4 +1,6 @@
-import React from "react";
+// web/src/App.tsx
+
+import React, { useEffect } from "react";
 import { ChatProvider, useChat } from "./store/chatContext";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -16,24 +18,78 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { SplashLoader } from "./components/common/SplashLoader";
 
 function AppContent() {
-  const { isAppInitializing, currentUser, forwardingMessage, setForwardingMessage } = useChat();
+  const {
+    isAppInitializing,
+    currentUser,
+    isAuthReady,
+    forwardingMessage,
+    setForwardingMessage,
+    selectChat, // ✅ اضافه کنید
+  } = useChat();
 
-  React.useEffect(() => {
-    if (!isAppInitializing && !currentUser) {
-      if (window.location.pathname !== "/login") {
-        sessionStorage.setItem("redirect_after_login", window.location.pathname + window.location.search);
-        try {
-          window.history.replaceState({}, "", "/login");
-        } catch (e) { }
+  // ✅ گوش دادن به رویداد باز کردن چت از Service Worker
+  useEffect(() => {
+    const handleOpenChat = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { chatId } = customEvent.detail || {};
+
+      if (chatId && currentUser) {
+        console.log('📨 Opening chat from notification:', chatId);
+        selectChat(chatId);
+      }
+    };
+
+    // اضافه کردن listener برای رویداد custom
+    window.addEventListener('sw-open-chat', handleOpenChat);
+
+    return () => {
+      window.removeEventListener('sw-open-chat', handleOpenChat);
+    };
+  }, [currentUser, selectChat]);
+
+  // ✅ مدیریت بک مرورگر برای کاربر لاگین شده
+  useEffect(() => {
+    if (!currentUser || isAppInitializing || !isAuthReady) return;
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (window.location.pathname === "/login") {
+        e.preventDefault();
+        window.history.pushState(null, "", "/");
+        window.history.pushState(null, "", "/");
+      }
+    };
+
+    const preventBack = () => {
+      if (window.location.pathname === "/login") {
+        window.history.pushState(null, "", "/");
+      }
+    };
+
+    window.history.pushState(null, "", window.location.pathname);
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", preventBack);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("popstate", preventBack);
+    };
+  }, [currentUser, isAppInitializing, isAuthReady]);
+
+  // ✅ ریدایرکت از /login به / وقتی کاربر لاگین هست
+  useEffect(() => {
+    if (currentUser && !isAppInitializing && isAuthReady) {
+      if (window.location.pathname === "/login") {
+        window.history.replaceState(null, "", "/");
       }
     }
-  }, [isAppInitializing, currentUser]);
+  }, [currentUser, isAppInitializing, isAuthReady]);
 
-  if (isAppInitializing) {
+  // اگر هنوز initialization کامل نشده یا auth آماده نیست، لودر نشون بده
+  if (isAppInitializing || !isAuthReady) {
     return <SplashLoader isLoading={true} />;
   }
 
-  // Prevent unauthenticated access: render ONLY Login when not logged in
+  // اگر کاربر لاگین نیست، AuthModal رو نشون بده
   if (!currentUser) {
     return (
       <div dir="rtl" className="h-screen w-screen bg-[var(--main-color-bg)] text-[var(--text-primary)] flex items-center justify-center font-sans overflow-hidden select-none">
@@ -42,37 +98,31 @@ function AppContent() {
     );
   }
 
+  // کاربر لاگین هست - صفحه کامل رو نشون بده
   return (
     <div dir="rtl" className="h-screen w-screen bg-[var(--main-color-bg)] text-[var(--text-primary)] flex flex-col font-sans overflow-x-hidden overflow-y-hidden select-none transition-colors duration-200">
       <SplashLoader isLoading={false} />
 
-      {/* Navigation Header */}
       <ErrorBoundary fallbackTitle="خطا در هدر اصلی">
         <Header />
       </ErrorBoundary>
 
-      {/* Workspace Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar */}
         <ErrorBoundary fallbackTitle="خطا در منوی گفتگوها">
           <Sidebar />
         </ErrorBoundary>
 
-        {/* Active Chat Pane */}
         <ErrorBoundary fallbackTitle="خطا در صفحه چت">
           <ChatPane />
         </ErrorBoundary>
 
-        {/* Group / Channel Info Drawer */}
         <ErrorBoundary fallbackTitle="خطا در پنل اطلاعات گروه">
           <GroupInfoDrawer />
         </ErrorBoundary>
       </div>
 
-      {/* Global Modals & Overlay Windows */}
       <ErrorBoundary fallbackTitle="خطا در پنجره جدید">
         <NewChatModal />
-        <AuthModal />
         <ProfileSettingsModal />
         <AdminDashboard />
         <MediaViewerModal />

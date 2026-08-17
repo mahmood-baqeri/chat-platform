@@ -1,4 +1,5 @@
-// web/src/components/ChatPane.tsx
+// web/src/components/chat/ChatPage.tsx
+
 import React, { useRef, useEffect, useState, useMemo, UIEvent } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";

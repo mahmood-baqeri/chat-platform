@@ -61,92 +61,189 @@ async function sendPushNotificationForMessage(
   mentions: string[] = [],
   msgType: string = "text"
 ) {
-  try {
-    // 1. دریافت تنظیمات از سرویس
-    const pushConfig = getPushConfig();
-    const pushPolicy = getPushPolicy();
-    const pushSubscriptions = getPushSubscriptions();
+  // اجرا در setTimeout برای اینکه کاملاً در پس‌زمینه اجرا بشه
+  setTimeout(async () => {
+    try {
+      // 1. دریافت تنظیمات از سرویس
+      const pushConfig = getPushConfig();
+      const pushPolicy = getPushPolicy();
+      const pushSubscriptions = getPushSubscriptions();
 
-    // 2. بررسی‌های اولیه
-    if (!pushConfig.isActive || pushPolicy === "disabled") {
-      return;
+      // 2. بررسی‌های اولیه
+      if (!pushConfig.isActive || pushPolicy === "disabled") {
+        return;
+      }
+
+      const chat = chats.find(c => c.id === chatId);
+      if (!chat) {
+        return;
+      }
+
+      if (pushPolicy === "direct_only" && chat.type !== "direct") {
+        return;
+      }
+
+      const sender = users.find(u => String(u.id) === String(senderId));
+      const senderName = sender ? sender.displayName : "فرستنده";
+
+      // 3. پیدا کردن کاربران هدف
+      let targetUserIds: (number | string)[] = [];
+      const memberUserIds = (chat.members || [])
+        .map(m => m.userId)
+        .filter(uid => String(uid) !== String(senderId));
+
+      if (pushPolicy === "always" || pushPolicy === "direct_only") {
+        targetUserIds = memberUserIds;
+      } else if (pushPolicy === "offline_only") {
+        targetUserIds = memberUserIds.filter(uid => {
+          const u = users.find(usr => String(usr.id) === String(uid));
+          return !u || u.status !== "online";
+        });
+      } else if (pushPolicy === "mentions_only") {
+        targetUserIds = memberUserIds.filter(uid => {
+          const u = users.find(usr => String(usr.id) === String(uid));
+          if (!u) return false;
+          const mentionIds = mentions.map(String);
+          return mentionIds.includes(String(uid)) ||
+            (u.personCode && content.includes(u.personCode));
+        });
+      }
+
+      if (targetUserIds.length === 0) {
+        return;
+      }
+
+      // 4. گرفتن اشتراک‌های فعال
+      const targetStrIds = targetUserIds.map(String);
+      const targets = pushSubscriptions.filter(s =>
+        targetStrIds.includes(String(s.userId || ""))
+      );
+
+      if (targets.length === 0) {
+        return;
+      }
+
+      // 5. ساخت payload
+      let body = content;
+      if (msgType === "image") body = "📷 تصویر";
+      else if (msgType === "video") body = "🎬 ویدیو";
+      else if (msgType === "audio") body = "🎵 صوتی";
+      else if (msgType === "voice") body = "🎙️ پیام صوتی";
+      else if (msgType === "document") body = "📄 فایل";
+      else if (msgType === "sticker") body = "🎨 استیکر";
+      else if (msgType === "location") body = "📍 موقعیت مکانی";
+      else if (msgType === "contact") body = "👤 تماس";
+
+      const payload = {
+        title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
+        body: body || content,
+        icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
+        url: `/?chatId=${chatId}`,
+        chatId: chatId,
+      };
+
+      // 6. ارسال به سرویس
+      await sendNotificationToTargets(targets, payload);
+
+    } catch (error: any) {
+      console.error("❌ Error in sendPushNotificationForMessage:", error);
     }
-
-    const chat = chats.find(c => c.id === chatId);
-    if (!chat) {
-      return;
-    }
-
-    if (pushPolicy === "direct_only" && chat.type !== "direct") {
-      return;
-    }
-
-    const sender = users.find(u => String(u.id) === String(senderId));
-    const senderName = sender ? sender.displayName : "فرستنده";
-
-    // 3. پیدا کردن کاربران هدف
-    let targetUserIds: (number | string)[] = [];
-    const memberUserIds = (chat.members || [])
-      .map(m => m.userId)
-      .filter(uid => String(uid) !== String(senderId));
-
-    if (pushPolicy === "always" || pushPolicy === "direct_only") {
-      targetUserIds = memberUserIds;
-    } else if (pushPolicy === "offline_only") {
-      targetUserIds = memberUserIds.filter(uid => {
-        const u = users.find(usr => String(usr.id) === String(uid));
-        return !u || u.status !== "online";
-      });
-    } else if (pushPolicy === "mentions_only") {
-      targetUserIds = memberUserIds.filter(uid => {
-        const u = users.find(usr => String(usr.id) === String(uid));
-        if (!u) return false;
-        const mentionIds = mentions.map(String);
-        return mentionIds.includes(String(uid)) ||
-          (u.personCode && content.includes(u.personCode));
-      });
-    }
-
-    if (targetUserIds.length === 0) {
-      return;
-    };
-
-    // 4. گرفتن اشتراک‌های فعال
-    const targetStrIds = targetUserIds.map(String);
-    const targets = pushSubscriptions.filter(s =>
-      targetStrIds.includes(String(s.userId || ""))
-    );
-
-    if (targets.length === 0) {
-      return;
-    }
-
-    // 5. ساخت payload
-    let body = content;
-    if (msgType === "image") body = "📷 تصویر";
-    else if (msgType === "video") body = "🎬 ویدیو";
-    else if (msgType === "audio") body = "🎵 صوتی";
-    else if (msgType === "voice") body = "🎙️ پیام صوتی";
-    else if (msgType === "document") body = "📄 فایل";
-    else if (msgType === "sticker") body = "🎨 استیکر";
-    else if (msgType === "location") body = "📍 موقعیت مکانی";
-    else if (msgType === "contact") body = "👤 تماس";
-
-    const payload = {
-      title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
-      body: body || content,
-      icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
-      url: `/?chatId=${chatId}`,
-      chatId: chatId,
-    };
-
-    // 6. ✅ ارسال به سرویس (نه اینجا!)
-    const result = await sendNotificationToTargets(targets, payload);
-
-  } catch (error: any) {
-    console.error("❌ Error in sendPushNotificationForMessage:", error);
-  }
+  }, 0); // تاخیر 0 برای اجرا در event loop بعدی
 }
+
+// async function sendPushNotificationForMessage(
+//   chatId: string,
+//   senderId: string,
+//   content: string,
+//   mentions: string[] = [],
+//   msgType: string = "text"
+// ) {
+//   try {
+//     // 1. دریافت تنظیمات از سرویس
+//     const pushConfig = getPushConfig();
+//     const pushPolicy = getPushPolicy();
+//     const pushSubscriptions = getPushSubscriptions();
+
+//     // 2. بررسی‌های اولیه
+//     if (!pushConfig.isActive || pushPolicy === "disabled") {
+//       return;
+//     }
+
+//     const chat = chats.find(c => c.id === chatId);
+//     if (!chat) {
+//       return;
+//     }
+
+//     if (pushPolicy === "direct_only" && chat.type !== "direct") {
+//       return;
+//     }
+
+//     const sender = users.find(u => String(u.id) === String(senderId));
+//     const senderName = sender ? sender.displayName : "فرستنده";
+
+//     // 3. پیدا کردن کاربران هدف
+//     let targetUserIds: (number | string)[] = [];
+//     const memberUserIds = (chat.members || [])
+//       .map(m => m.userId)
+//       .filter(uid => String(uid) !== String(senderId));
+
+//     if (pushPolicy === "always" || pushPolicy === "direct_only") {
+//       targetUserIds = memberUserIds;
+//     } else if (pushPolicy === "offline_only") {
+//       targetUserIds = memberUserIds.filter(uid => {
+//         const u = users.find(usr => String(usr.id) === String(uid));
+//         return !u || u.status !== "online";
+//       });
+//     } else if (pushPolicy === "mentions_only") {
+//       targetUserIds = memberUserIds.filter(uid => {
+//         const u = users.find(usr => String(usr.id) === String(uid));
+//         if (!u) return false;
+//         const mentionIds = mentions.map(String);
+//         return mentionIds.includes(String(uid)) ||
+//           (u.personCode && content.includes(u.personCode));
+//       });
+//     }
+
+//     if (targetUserIds.length === 0) {
+//       return;
+//     };
+
+//     // 4. گرفتن اشتراک‌های فعال
+//     const targetStrIds = targetUserIds.map(String);
+//     const targets = pushSubscriptions.filter(s =>
+//       targetStrIds.includes(String(s.userId || ""))
+//     );
+
+//     if (targets.length === 0) {
+//       return;
+//     }
+
+//     // 5. ساخت payload
+//     let body = content;
+//     if (msgType === "image") body = "📷 تصویر";
+//     else if (msgType === "video") body = "🎬 ویدیو";
+//     else if (msgType === "audio") body = "🎵 صوتی";
+//     else if (msgType === "voice") body = "🎙️ پیام صوتی";
+//     else if (msgType === "document") body = "📄 فایل";
+//     else if (msgType === "sticker") body = "🎨 استیکر";
+//     else if (msgType === "location") body = "📍 موقعیت مکانی";
+//     else if (msgType === "contact") body = "👤 تماس";
+
+//     const payload = {
+//       title: chat.type === "direct" ? senderName : `${senderName} در ${chat.title}`,
+//       body: body || content,
+//       icon: sender?.avatarUrl || chat.avatarUrl || AvatarPhoto,
+//       url: `/?chatId=${chatId}`,
+//       chatId: chatId,
+//     };
+
+//     // 6. ✅ ارسال به سرویس (نه اینجا!)
+//     await sendNotificationToTargets(targets, payload);
+
+//   } catch (error: any) {
+//     console.error("❌ Error in sendPushNotificationForMessage:", error);
+//   }
+// }
 
 // ==========================================
 // GET USER CHATS
@@ -611,14 +708,27 @@ router.post("/chats/:chatId/messages", async (req: Request, res: Response) => {
   );
 
   const enriched = enrichMessage(newMsg);
+  // sendRoomWSEvent(chatId, "message:new", enriched);
+
+  // // ==========================================
+  // // ارسال پوش نوتیفیکیشن
+  // // ==========================================
+  // await sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type);
+
+
+   // ==========================================
+  // ✅ ارسال پوش نوتیفیکیشن به صورت غیرهمگام (بدون منتظر ماندن)
+  // ==========================================
+  // این تابع رو بدون await صدا بزنید تا بلاک نشه
+  sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type)
+    .catch(err => console.error("❌ Push notification error:", err));
+
+  // ==========================================
+  // ارسال پاسخ به فرانت (سریع)
+  // ==========================================
   sendRoomWSEvent(chatId, "message:new", enriched);
-
-  // ==========================================
-  // ارسال پوش نوتیفیکیشن
-  // ==========================================
-  await sendPushNotificationForMessage(chatId, String(newMsg.senderId), newMsg.content, newMsg.mentions, newMsg.type);
-
   res.json(enriched);
+  
 });
 
 // ==========================================

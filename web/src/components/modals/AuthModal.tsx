@@ -1,3 +1,5 @@
+// web/src/components/modals/AuthModal.tsx
+
 import React, { useState, useEffect, useRef } from "react";
 import { useChat } from "../../store/chatContext";
 import { api } from "../../services/api";
@@ -26,8 +28,6 @@ export const AuthModal: React.FC = () => {
   // برای جلوگیری از ارسال مجدد
   const hasSubmittedRef = useRef(false);
 
-  if (!showAuthModal && currentUser) return null;
-
   // شروع تایمر هنگام ورود به مرحله OTP
   useEffect(() => {
     if (step === "otp") {
@@ -40,18 +40,15 @@ export const AuthModal: React.FC = () => {
     };
   }, [step]);
 
-  // ✅ auto-submit وقتی کد کامل شد
+  // auto-submit وقتی کد کامل شد
   useEffect(() => {
-    // فقط وقتی در مرحله OTP هستیم، کد ۵ رقم است، بارگذاری نیست و قبلاً سابمیت نشده
     if (step === "otp" && otpCode.length === 5 && !isLoading && !hasSubmittedRef.current) {
       hasSubmittedRef.current = true;
-      // تاخیر ۱۰۰ میلی‌ثانیه برای اطمینان از آپدیت state
       const timer = setTimeout(() => {
         handleVerifyOtp();
       }, 100);
       return () => clearTimeout(timer);
     } else if (otpCode.length !== 5) {
-      // وقتی کد کامل نیست، فلگ رو ریست کن
       hasSubmittedRef.current = false;
     }
   }, [otpCode, step, isLoading]);
@@ -80,7 +77,7 @@ export const AuthModal: React.FC = () => {
 
     setIsLoading(true);
     setErrorMsg("");
-    hasSubmittedRef.current = false; // ریست فلگ
+    hasSubmittedRef.current = false;
     try {
       const res = await api.sendOtp(phone);
       setSentOtp(res.otp);
@@ -98,8 +95,8 @@ export const AuthModal: React.FC = () => {
 
     setIsLoading(true);
     setErrorMsg("");
-    hasSubmittedRef.current = false; // ریست فلگ
-    setOtpCode(""); // پاک کردن کد قبلی
+    hasSubmittedRef.current = false;
+    setOtpCode("");
     try {
       const res = await api.sendOtp(phone);
       setSentOtp(res.otp);
@@ -114,7 +111,6 @@ export const AuthModal: React.FC = () => {
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // اعتبارسنجی کامل قبل از ارسال
     if (!phone || !phone.trim()) {
       setErrorMsg("شماره تلفن یافت نشد، لطفاً مرحله قبل را دوباره انجام دهید");
       setStep("phone");
@@ -126,14 +122,11 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
-    // جلوگیری از ارسال همزمان
     if (isLoading) return;
 
     setIsLoading(true);
     setErrorMsg("");
     try {
-      console.log("📤 ارسال کد به سرور:", { phone, otpCode }); // دیباگ
-
       const { user, token } = await api.verifyOtp(phone, otpCode);
 
       localStorage.setItem("app_auth_token", token);
@@ -151,17 +144,29 @@ export const AuthModal: React.FC = () => {
 
       let targetRoute = "/";
       if (redirectTarget) {
-        targetRoute = (redirectTarget.startsWith("/chat/") || redirectTarget.startsWith("/admin")) ? redirectTarget : (redirectTarget === "/login" ? "/" : redirectTarget);
+        targetRoute = (redirectTarget.startsWith("/chat/") || redirectTarget.startsWith("/admin"))
+          ? redirectTarget
+          : (redirectTarget === "/login" ? "/" : redirectTarget);
       }
+
+      // مدیریت history برای جلوگیری از برگشت به لاگین
       try {
-        window.history.pushState({}, "", targetRoute);
-        window.dispatchEvent(new Event("popstate"));
+        window.history.replaceState(null, "", targetRoute);
+        // اضافه کردن state اضافی برای جلوگیری از خروج
+        window.history.pushState(null, "", targetRoute);
       } catch (e) { }
+
+      // ریست کردن stateهای مودال
+      setOtpCode("");
+      setErrorMsg("");
+      setStep("phone");
+      hasSubmittedRef.current = false;
+
     } catch (err: any) {
       console.error("❌ خطا در تایید کد:", err);
       setErrorMsg(err.message || "کد تأیید اشتباه است");
-      setOtpCode(""); // پاک کردن کد اشتباه
-      hasSubmittedRef.current = false; // اجازه ارسال مجدد
+      setOtpCode("");
+      hasSubmittedRef.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -173,14 +178,20 @@ export const AuthModal: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // اگر کاربر لاگین هست، چیزی نشون نده
+  if (currentUser) return null;
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-[var(--bg)] border border-white/10 rounded-3xl p-6 w-full max-w-sm text-white shadow-2xl animate-in zoom-in-95 duration-200 text-center">
-        <div className="w-50 mx-auto mb-5 mt-4 rounded-2xl flex items-center ">
+        {/* لوگو */}
+        <div className="w-50 mx-auto mb-5 mt-4 rounded-2xl flex items-center">
           <ShowImage src={LogoPhoto} className="w-full h-full object-cover" />
         </div>
 
-        <h3 className="font-bold text-base text-[var(--text-primary)] mb-1 ">ورود به فیـــــــدار</h3>
+        <h3 className="font-bold text-base text-[var(--text-primary)] mb-1">
+          ورود به فیـــــــدار
+        </h3>
 
         {errorMsg && (
           <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-2.5 rounded-xl mb-4">
@@ -220,15 +231,15 @@ export const AuthModal: React.FC = () => {
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div className="text-right">
-              <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">کد تأیید ۵ رقمی</label>
+              <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1">
+                کد تأیید ۵ رقمی
+              </label>
               <div className="otpElement flex justify-center">
                 <OtpInput
                   value={otpCode}
                   onChange={(value) => {
-                    // فقط عدد مجاز
                     const numericValue = value.replace(/[^0-9]/g, '').slice(0, 5);
                     setOtpCode(numericValue);
-                    // فلگ رو ریست کن تا useEffect دوباره فعال بشه
                     hasSubmittedRef.current = false;
                   }}
                   numInputs={5}

@@ -17,6 +17,7 @@ import uploadEndpoint from "./endpoints/upload-endpoint.js";
 import adminEndpoint from "./endpoints/admin-endpoint.js";
 import dbEndpoint from "./endpoints/db-endpoint.js";
 import pushEndpoint from "./endpoints/push-endpoint.js";
+import contactEndpoint from "./endpoints/contact-endpoint.js";
 
 const currentDir = process.cwd();
 
@@ -46,6 +47,7 @@ export async function startServer() {
   app.use("/api", adminEndpoint);
   app.use("/api", dbEndpoint);
   app.use("/api", pushEndpoint);
+  app.use("/api", contactEndpoint);
 
   // Vite Middleware in Development Mode
   if (process.env.NODE_ENV !== "production") {

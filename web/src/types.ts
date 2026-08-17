@@ -192,6 +192,12 @@ export interface Chat {
   inviteLink?: string;
   createdAt: string;
   draftText?: string;
+  
+    // اضافه شده‌ها
+  contactStatus?: 'online' | 'offline' | 'away' ;
+  contactLastSeen?: string | null;
+  contactUser?: User;
+  onlineCount?: number; // برای گروه‌ها
 }
 
 export interface SystemAuditLog {

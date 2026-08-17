@@ -63,6 +63,15 @@ export const api = {
     return res.json();
   },
 
+  updateUserStatus: async (userId: string | number, status: 'online' | 'offline' | 'away' ) => {
+    const res = await authFetch(`${API_BASE}/auth/updateUserStatus`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({userId, status}),
+    });
+    return res.json();
+  },
+
   terminateOtherSessions: async (userId: string, currentSessionId: string) => {
     const res = await authFetch(`${API_BASE}/auth/sessions/terminate-others`, {
       method: "POST",

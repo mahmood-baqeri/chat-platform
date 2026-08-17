@@ -54,6 +54,7 @@ self.addEventListener("push", (event) => {
   );
 });
 
+
 // کلیک روی نوتیفیکیشن
 self.addEventListener("notificationclick", (event) => {
   console.log("🔔 Notification clicked:", event);
@@ -65,9 +66,11 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // اگر کلاینت باز وجود داره
       for (const client of clientList) {
-        if ("focus" in client) {
+        if ("focus" in client && client.visibilityState === "visible") {
           client.focus();
+          // ✅ ارسال پیام به کلاینت برای باز کردن چت
           if (chatId) {
             client.postMessage({
               type: "OPEN_CHAT",
@@ -77,9 +80,53 @@ self.addEventListener("notificationclick", (event) => {
           return;
         }
       }
+
+      // اگر هیچ کلاینتی باز نیست، پنجره جدید باز کن
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
+        return self.clients.openWindow(targetUrl).then((windowClient) => {
+          // بعد از باز شدن پنجره، پیام بفرست
+          if (windowClient && chatId) {
+            // صبر می‌کنیم تا صفحه لود بشه
+            setTimeout(() => {
+              windowClient.postMessage({
+                type: "OPEN_CHAT",
+                chatId: chatId
+              });
+            }, 500);
+          }
+        });
       }
     })
   );
 });
+
+
+// // کلیک روی نوتیفیکیشن
+// self.addEventListener("notificationclick", (event) => {
+//   console.log("🔔 Notification clicked:", event);
+
+//   event.notification.close();
+
+//   const targetUrl = event.notification.data?.url || "/";
+//   const chatId = event.notification.data?.chatId;
+
+//   event.waitUntil(
+//     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+//       for (const client of clientList) {
+//         if ("focus" in client) {
+//           client.focus();
+//           if (chatId) {
+//             client.postMessage({
+//               type: "OPEN_CHAT",
+//               chatId: chatId
+//             });
+//           }
+//           return;
+//         }
+//       }
+//       if (self.clients.openWindow) {
+//         return self.clients.openWindow(targetUrl);
+//       }
+//     })
+//   );
+// });

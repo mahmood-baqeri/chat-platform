@@ -287,7 +287,7 @@ export const ProfileSettingsModal: React.FC = () => {
               <input
                 type="text"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                // onChange={(e) => setFirstName(e.target.value)}
                 className="w-full border border-slate-700 rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
               />
             </div>
@@ -296,7 +296,7 @@ export const ProfileSettingsModal: React.FC = () => {
               <input
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                // onChange={(e) => setLastName(e.target.value)}
                 className="w-full border border-slate-700 rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
               />
             </div>
@@ -307,7 +307,7 @@ export const ProfileSettingsModal: React.FC = () => {
             <input
               type="text"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              // onChange={(e) => setDisplayName(e.target.value)}
               className="w-full border border-slate-700 rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] focus:border-cyan-500 focus:outline-none"
             />
           </div>

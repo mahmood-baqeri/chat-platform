@@ -1,3 +1,5 @@
+// web/src/store/chatContext.tsx
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { User, Chat, Message, SystemSettings, UserSession, MessageType } from "../types";
 import { api } from "../services/api";
@@ -23,6 +25,7 @@ interface ChatContextType {
 
   // App & Chat Loading States
   isAppInitializing: boolean;
+  isAuthReady: boolean;
   isChatLoading: boolean;
 
   // Modals & UI States
@@ -146,6 +149,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Loading States
   const [isAppInitializing, setIsAppInitializing] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
   // Modals & Drawers
@@ -424,6 +428,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } finally {
         if (isMounted) {
+          setIsAuthReady(true);
           setTimeout(() => {
             if (isMounted) setIsAppInitializing(false);
           }, 600);
@@ -732,6 +737,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     });
 
+    const unsubUserStatus = wsClient.on("user:status", ({ userId, status, last_seen }: { userId: string; status: string; last_seen: string }) => {
+      // به‌روزرسانی وضعیت کاربر در لیست مخاطبین
+      setChats((prev) =>
+        prev.map((chat) => {
+          if (chat.type === "direct") {
+            const otherMember = chat.members?.find(m => String(m.userId) !== String(currentUser?.id));
+            if (otherMember && String(otherMember.userId) === String(userId)) {
+              return {
+                ...chat,
+                members: chat.members?.map(m =>
+                  String(m.userId) === String(userId)
+                    ? { ...m, status, last_seen }
+                    : m
+                )
+              };
+            }
+          }
+          return chat;
+        })
+      );
+    });
+
     return () => {
       unsubNewMsg();
       unsubMsgUpdated();
@@ -741,6 +768,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubSettings();
       unsubTyping();
       unsubChatCreated();
+      unsubUserStatus();
     };
   }, [activeChat, currentUser, playNotificationSound]);
 
@@ -946,17 +974,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [activeChat, currentUser]);
 
-  const logout = () => {
+
+  const logout = useCallback(() => {
+    try {
+      // ۱. آفلاین کردن کاربر از طریق WebSocket
+      if (currentUser && wsClient.isConnected()) {
+        wsClient.send("user:logout", {
+          userId: currentUser.id
+        });
+      }
+    } catch (err) {
+      console.error('Error sending logout signal:', err);
+    }
+
+    // ۲. قطع اتصال WebSocket
+    wsClient.disconnect();
+
+    // ۳. پاک کردن localStorage
     localStorage.removeItem("app_auth_token");
     localStorage.removeItem("app_token_timestamp");
     localStorage.removeItem("app_user_id");
+
+    // ۴. پاک کردن stateها
     setCurrentUser(null);
     setChats([]);
     setActiveChat(null);
     setMessages([]);
-    wsClient.disconnect();
+
+    // ۵. نمایش مودال لاگین
     setShowAuthModal(true);
-  };
+  }, [currentUser]);
 
   // Monitor Session Duration Expiry
   useEffect(() => {
@@ -997,6 +1044,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleTheme,
         setTheme,
         isAppInitializing,
+        isAuthReady,
         isChatLoading,
         showAuthModal,
         setShowAuthModal,

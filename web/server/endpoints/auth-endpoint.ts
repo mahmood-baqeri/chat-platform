@@ -1,3 +1,5 @@
+// web/server/endpoints/auth-endpoint.ts
+
 import express, { Request, Response } from "express";
 import {
   users,
@@ -69,32 +71,106 @@ export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
     unreadCount: userUnreadCount,
   };
 
+  // ✅ اضافه کردن وضعیت آنلاین و آخرین ورود
+  let contactStatus = "offline";
+  let contactLastSeen = null;
+  let contactUser = null;
+  let onlineCount = 0;
+
   if (chat.type === "direct") {
     const otherMember =
       (chat.members || []).find((m) => String(m.userId) !== String(currentUserId)) ||
       (chat.members || []).find((m) => String(m.userId) === String(currentUserId));
+    
     if (otherMember) {
       const targetUser = users.find((u) => String(u.id) === String(otherMember.userId));
       if (targetUser) {
+        contactStatus = targetUser.status || "offline";
+        contactLastSeen = targetUser.lastSeen || null;
+        contactUser = targetUser;
+
         const displayName =
           targetUser.displayName ||
           `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() ||
           targetUser.personCode ||
           chat.title;
+        
         formatted = {
           ...formatted,
           title: displayName,
           avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
           username: targetUser.personCode || chat.username,
+         contactStatus: contactStatus as "online" | "offline" | "away",
+          contactLastSeen,
+          contactUser,
         };
       }
     }
+  } else {
+    // چت گروهی - تعداد آنلاین‌ها
+    const memberIds = (chat.members || []).map(m => String(m.userId));
+    onlineCount = users.filter(u => 
+      memberIds.includes(String(u.id)) && 
+      u.status === "online"
+    ).length;
+    
+    formatted = {
+      ...formatted,
+      onlineCount,
+    };
   }
-
-
 
   return formatted;
 }
+
+// export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
+//   if (!chat) return chat;
+
+//   const chatMsgs = messages.filter(
+//     (m) =>
+//       String(m.chatId) === String(chat.id) ||
+//       String(m.chatId).replace(/^chat-/, "") === String(chat.id).replace(/^chat-/, "")
+//   );
+
+//   const userUnreadCount = chatMsgs.filter((m) => {
+//     if (String(m.senderId) === String(currentUserId)) return false;
+//     const isSeenByMe =
+//       (m.seenBy && m.seenBy.some((s) => String(s.userId) === String(currentUserId))) ||
+//       messageSeens.some(
+//         (s) => String(s.messageId) === String(m.id) && String(s.userId) === String(currentUserId)
+//       );
+//     return !isSeenByMe;
+//   }).length;
+
+//   let formatted: Chat = {
+//     ...chat,
+//     unreadCount: userUnreadCount,
+//   };
+
+//   if (chat.type === "direct") {
+//     const otherMember =
+//       (chat.members || []).find((m) => String(m.userId) !== String(currentUserId)) ||
+//       (chat.members || []).find((m) => String(m.userId) === String(currentUserId));
+//     if (otherMember) {
+//       const targetUser = users.find((u) => String(u.id) === String(otherMember.userId));
+//       if (targetUser) {
+//         const displayName =
+//           targetUser.displayName ||
+//           `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() ||
+//           targetUser.personCode ||
+//           chat.title;
+//         formatted = {
+//           ...formatted,
+//           title: displayName,
+//           avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
+//           username: targetUser.personCode || chat.username,
+//         };
+//       }
+//     }
+//   }
+
+//   return formatted;
+// }
 
 // ============================================
 // HEALTH CHECK
@@ -259,6 +335,16 @@ router.post("/auth/otp/verify", async (req: Request, res: Response) => {
         error: "حساب کاربری شما مسدود شده است"
       });
     }
+    
+      // ✅ بروزرسانی status و last_seen در دیتابیس
+    user.status = 'online';
+    user.lastSeen = new Date().toISOString();
+
+    // بروزرسانی در دیتابیس
+    await dbExecute(
+      `UPDATE users SET status = 'online', last_seen = NOW() WHERE id = ?`,
+      [user.id]
+    );
 
     // 6. حذف کد از حافظه بعد از استفاده موفق
     delete otpStore[identifier];
@@ -341,9 +427,9 @@ router.post("/auth/profile/update", async (req: Request, res: Response) => {
   const user = users.find(u => String(u.id) === String(userId));
   if (!user) return res.status(404).json({ error: "کاربر یافت نشد" });
 
-  if (firstName) user.firstName = firstName;
-  if (lastName) user.lastName = lastName;
-  if (displayName) user.displayName = displayName;
+  // if (firstName) user.firstName = firstName;
+  // if (lastName) user.lastName = lastName;
+  // if (displayName) user.displayName = displayName;
   if (avatarUrl !== undefined) {
     user.avatarUrl = avatarUrl ? saveBase64ToFile(avatarUrl, "avatar_" + user.id) : AvatarPhoto;
   }
@@ -354,6 +440,24 @@ router.post("/auth/profile/update", async (req: Request, res: Response) => {
   );
 
   res.json({ user, message: "پروفایل با موفقیت بروزرسانی شد" });
+});
+
+// ============================================
+// 4. UPDATE PROFILE
+// ============================================
+router.post("/auth/updateUserStatus", async (req: Request, res: Response) => {
+  const { userId, status} = req.body;
+  const user = users.find(u => String(u.id) === String(userId));
+  if (!user) return res.status(404).json({ error: "کاربر یافت نشد" });
+
+  user.status = status;
+
+  await dbExecute(
+    `UPDATE users SET status = ? WHERE id = ?`,
+    [user.status, user.id]
+  );
+
+  res.json({ user, message: "خروج از حساب کاربری" });
 });
 
 // ============================================

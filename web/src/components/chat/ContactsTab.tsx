@@ -112,12 +112,12 @@ export const ContactsTab: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
         {isLoading ? (
           <div className="py-12 text-center text-xs text-[var(--text-secondary)] flex flex-col items-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+            <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
             <span>در حال بارگذاری لیست مخاطبین ...</span>
           </div>
         ) : filteredContacts.length === 0 ? (
           <div className="py-16 text-center text-[var(--text-secondary)] text-xs px-4">
-            <UserCheck className="w-10 h-10 mx-auto mb-2 text-emerald-500/40" />
+            <UserCheck className="w-10 h-10 mx-auto mb-2 text-cyan-500/40" />
             <p className="font-bold text-[var(--text-primary)] mb-1">مخاطبی یافت نشد</p>
             <p className="text-[11px] leading-relaxed">
               {searchQuery ? "هیچ مخاطبی با عبارت جستجو شده تطابق ندارد." : "هنوز مخاطبی ثبت نشده است."}
@@ -128,13 +128,13 @@ export const ContactsTab: React.FC = () => {
             <div
               key={contact.id}
               onClick={() => handleSelectContact(contact)}
-              className="p-3 rounded-2xl bg-[var(--list)]/50 hover:bg-[var(--list)] border border-[var(--border)]/40 hover:border-emerald-500/30 transition-all cursor-pointer group flex items-center justify-between gap-3 relative"
+              className="p-3 rounded-2xl bg-[var(--list)]/50 hover:bg-[var(--list)] border border-[var(--border)]/40 hover:border-cyan-500/30 transition-all cursor-pointer group flex items-center justify-between gap-3 relative"
             >
               {/* Avatar with Status Badge */}
               <div className="relative shrink-0">
-                <ShowImage src={contact.avatarUrl} className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/20 group-hover:ring-emerald-500 transition-all" />
+                <ShowImage src={contact.avatarUrl} className="w-11 h-11 rounded-full object-cover ring-2 ring-cyan-500/20 group-hover:ring-cyan-500 transition-all" />
                 <span
-                  className={`w-3 h-3 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5 ${contact.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
+                  className={`w-3 h-3 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5 ${contact.status === "online" ? "bg-cyan-500 animate-pulse" : "bg-slate-500"
                     }`}
                   title={contact.status === "online" ? "آنلاین" : "آفلاین"}
                 />
@@ -143,7 +143,7 @@ export const ContactsTab: React.FC = () => {
               {/* Contact Info */}
               <div className="flex-1 min-w-0 text-right">
                 <div className="flex items-center justify-between gap-1 mb-0.5">
-                  <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-400 transition-colors truncate">
+                  <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors truncate">
                     {contact.displayName || contact.customName}
                   </h4>
                   {contact.lastMessage?.createdAt && (
@@ -158,7 +158,7 @@ export const ContactsTab: React.FC = () => {
                     {contact.lastMessage?.content ? (
                       <span className="truncate block">{contact.lastMessage.content}</span>
                     ) : (
-                      <span className="text-[10px] italic text-emerald-400/80">
+                      <span className="text-[10px] italic text-cyan-400/80">
                         {contact.status === "online" ? "آنلاین" : `آخرین بازدید: ${contact.lastSeen}`}
                       </span>
                     )}
@@ -166,7 +166,7 @@ export const ContactsTab: React.FC = () => {
 
                   {/* Unread Count Badge */}
                   {/* {contact.unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-mono text-[10px] font-bold shrink-0">
+                    <span className="px-1.5 py-0.5 rounded-full bg-cyan-500 text-white font-mono text-[10px] font-bold shrink-0">
                       {contact.unreadCount}
                     </span>
                   )} */}
@@ -176,7 +176,7 @@ export const ContactsTab: React.FC = () => {
               {/* Loading indicator when opening chat */}
               {isOpeningChat === contact.contactUserId && (
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-2xl flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
                 </div>
               )}
             </div>

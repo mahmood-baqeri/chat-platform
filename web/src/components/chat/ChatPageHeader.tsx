@@ -53,7 +53,7 @@ export const ChatPageHeader: React.FC<ChatHeaderProps> = ({
                     >
                          <div className="relative shrink-0">
                               <ShowImage src={activeChat.avatarUrl} className="w-10 h-10 rounded-full object-cover ring-2 ring-cyan-500/20 group-hover:ring-cyan-500 transition-all" />
-                              <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5" />
+                              <span className={`w-2.5 h-2.5 rounded-full ring-2 ring-[var(--sidebar)] absolute -bottom-0.5 -left-0.5  ${activeChat.contactStatus === "online" ? "bg-cyan-500" : "bg-slate-500"}`} />
                          </div>
 
                          <div className="text-right min-w-0 flex-1">
@@ -76,7 +76,7 @@ export const ChatPageHeader: React.FC<ChatHeaderProps> = ({
                                                   ? "کانال رسمی"
                                                   : activeChat.type === "group"
                                                        ? `${actualMemberCount} عضو`
-                                                       : "آنلاین"}
+                                                       : activeChat.contactStatus === "online" ? "آنلاین" : "آفلاین"}
                                         </span>
                                    )}
                               </p>
