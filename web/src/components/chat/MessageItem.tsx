@@ -177,19 +177,19 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
           return (
             <div
               key={att.id}
-              className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800/90 border border-slate-700/60 max-w-xs text-slate-200 hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-3 p-3 rounded-2xl bg-slate-300/90 border border-slate-100/60 max-w-xs text-slate-200 hover:bg-slate-500 transition-colors"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
                 <FileText className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0 text-right">
-                <p className="text-xs font-semibold truncate text-slate-200">{att.name}</p>
-                <p className="text-[10px] text-slate-400 font-mono">{(att.size / 1024).toFixed(1)} KB</p>
+                <p className="text-xs font-semibold truncate text-slate-900">{att.name}</p>
+                <p className="text-[10px] text-slate-600 font-mono">{(att.size / 1024).toFixed(1)} KB</p>
               </div>
               <a
                 href={att.url}
                 download={att.name}
-                className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                className="p-2 rounded-xl bg-slate-400 hover:bg-slate-600 text-slate-900 transition-colors"
               >
                 <Download className="w-4 h-4" />
               </a>
@@ -251,10 +251,10 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
     }
   };
 
-  // const isEmojiOnly = useIsEmojiOnly(message.content);
-  console.log('message.content:', message.content);
   const isEmojiOnlyResult = useIsEmojiOnly(message.content);
-  console.log('isEmojiOnly result:', isEmojiOnlyResult);
+
+  const reactionButtonRef = useRef<HTMLButtonElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div
@@ -276,7 +276,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
       {/* Group Sender Avatar & Name */}
       {activeChat?.type === "group" && !isMe && isFirstInGroup && (
         <div
-          className="flex items-center gap-1.5 mb-1 px-1 text-xs font-semibold text-blue-500 dark:text-blue-400 flex-row-reverse cursor-pointer"
+          className="flex items-center gap-1.5 mb-1 px-1 text-xs font-semibold text-cyan-500 dark:text-cyan-400 flex-row-reverse cursor-pointer"
           onClick={() => handleSelectContact(message.senderId)}
         >
           <ShowImage
@@ -290,19 +290,18 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
       )}
 
       {/* Main Message Container */}
-      <div
-        className={`flex items-end gap-2 max-w-[85%] sm:max-w-[75%] relative ${isMe ? "flex-row-reverse" : "flex-row"
-          }`}
-      >
+      <div className={`flex items-end gap-2 max-w-full sm:max-w-[75%] relative ${isMe ? "flex-row-reverse" : "flex-row"}`}>
         {/* Context Menu Buttons */}
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+        <div className="transition-opacity flex items-center gap-1 shrink-0">
           <button
+            ref={reactionButtonRef}
             onClick={toggleReactionPicker}
             className="p-1 rounded-lg bg-[var(--list)] hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             <Smile className="w-3.5 h-3.5" />
           </button>
           <button
+            ref={menuButtonRef}
             onClick={toggleMenu}
             className="p-1 rounded-lg bg-[var(--list)] hover:bg-black/10 dark:hover:bg-white/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
@@ -316,6 +315,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
           onClose={() => setActiveOpenMenuId(null)}
           onSelectReaction={(emoji) => toggleReaction(String(message.id), emoji)}
           isMe={isMe}
+          anchorRef={reactionButtonRef}
         />
 
         {/* Message Menu */}
@@ -330,6 +330,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
           onPin={() => togglePinMessage(String(message.id))}
           onDelete={() => setShowConfirmDelete(true)}
           systemSettings={systemSettings}
+          anchorRef={menuButtonRef}
         />
 
         {/* Bubble Box */}
@@ -344,8 +345,8 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
             <div
               onClick={() => jumpToMessage(String(message.replyToMessageId || message.replyToMessage!.id))}
               className={`p-2 rounded-xl mb-2 text-[11px] border-r-2 cursor-pointer hover:opacity-90 transition-opacity ${isMe
-                ? "bg-black/50 border-white/60 text-blue-100"
-                : "bg-black/50 border-blue-400 text-slate-300"
+                ? "bg-black/50 border-white/60 text-cyan-100"
+                : "bg-black/50 border-cyan-400 text-slate-300"
                 }`}
             >
               <p className="truncate opacity-90">{message.replyToMessage.content}</p>
@@ -417,7 +418,7 @@ export const MessageItem: React.FC<Props> = ({ message, isFirstInGroup = true })
             <button
               key={rx.emoji}
               onClick={() => toggleReaction(String(message.id), rx.emoji)}
-              className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] flex items-center gap-1 hover:bg-slate-700 transition-colors shadow-sm"
+              className="px-2 py-0.5 rounded-full bg-slate-600 border border-slate-700 text-[11px] flex items-center gap-1 hover:bg-slate-700 transition-colors shadow-sm"
             >
               <span>{rx.emoji}</span>
               <span className="font-mono font-bold text-slate-300">{rx.count}</span>

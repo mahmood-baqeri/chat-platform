@@ -114,23 +114,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ attachment, isMe, onDe
 
   return (
     <div
-      className={`p-3 rounded-2xl border flex flex-col gap-2.5 min-w-[260px] max-w-xs transition-all relative ${
-        isPlaying ? "shadow-[0_0_20px_rgba(59,130,246,0.3)] ring-1 ring-blue-500/50" : ""
-      } ${
-        isMe
-          ? "bg-gradient-to-r from-blue-600/90 to-indigo-600/90 border-white/20 text-white"
+      className={`p-3 rounded-2xl border flex flex-col gap-2.5 min-w-[260px] max-w-xs transition-all relative ${isPlaying ? "shadow-[0_0_20px_rgba(59,130,246,0.3)] ring-1 ring-cyan-500/50" : ""
+        } ${isMe
+          ? "bg-gradient-to-r from-cyan-900/90 to-cyan-600/90 border-white/20 text-white"
           : "bg-gradient-to-r from-slate-800/95 to-slate-900/95 border-white/10 text-slate-100"
-      }`}
+        }`}
     >
       <div className="flex items-center gap-3">
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
-          className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 active:scale-95 ${
-            isMe
-              ? "bg-white text-blue-600 hover:bg-slate-100"
-              : "bg-blue-500 text-white hover:bg-blue-400"
-          }`}
+          className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 active:scale-95 ${isMe
+            ? "bg-white text-cyan-600 hover:bg-slate-100"
+            : "bg-cyan-500 text-white hover:bg-cyan-400"
+            }`}
           title={isPlaying ? "توقف" : "پخش"}
         >
           {isBuffering ? (
@@ -158,11 +155,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ attachment, isMe, onDe
                 <div
                   key={idx}
                   onClick={() => handleBarClick(idx)}
-                  className={`flex-1 rounded-full transition-all duration-150 ${
-                    isPassed
-                      ? isMe ? "bg-white" : "bg-blue-400"
-                      : isMe ? "bg-white/30 hover:bg-white/50" : "bg-white/20 hover:bg-white/40"
-                  }`}
+                  className={`flex-1 rounded-full transition-all duration-150 ${isPassed
+                    ? isMe ? "bg-white" : "bg-cyan-400"
+                    : isMe ? "bg-white/30 hover:bg-white/50" : "bg-white/20 hover:bg-white/40"
+                    }`}
                   style={{ height: `${barHeight}%` }}
                 />
               );
@@ -177,7 +173,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ attachment, isMe, onDe
           {/* Speed Toggle Button */}
           <button
             onClick={toggleSpeed}
-            className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 font-bold font-mono text-[10px] text-blue-200 transition-colors"
+            className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 font-bold font-mono text-[10px] text-cyan-200 transition-colors"
             title="تغییر سرعت پخش"
           >
             {playbackSpeed}x
@@ -189,7 +185,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ attachment, isMe, onDe
           <a
             href={attachment.url}
             download={attachment.name || "voice_message.webm"}
-            className="hover:text-blue-200 transition-colors flex items-center gap-1"
+            className="hover:text-cyan-200 transition-colors flex items-center gap-1"
             title="دانلود فایل صوتی"
           >
             <Download className="w-3 h-3" />

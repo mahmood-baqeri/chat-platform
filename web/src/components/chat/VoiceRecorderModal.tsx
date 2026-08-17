@@ -75,89 +75,138 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
 
   const startRecording = async () => {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("مرورگر شما از قابلیت ضبط صدا پشتیبانی نمی‌کند");
       }
 
-      // Force consistent audio constraints to prevent sample rate pitch/speed stretching
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           channelCount: 1,
-          sampleRate: { ideal: 48000 },
         },
       });
 
       mediaStreamRef.current = stream;
       audioChunksRef.current = [];
 
-      const audioTrack = stream.getAudioTracks()[0];
-      const trackSettings = audioTrack ? audioTrack.getSettings() : {};
-      const trackSampleRate = trackSettings.sampleRate;
+      // فقط MIME واقعی پشتیبانی‌شده را انتخاب کن
+      const mimeTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/ogg",
+      ];
 
-      const mimeType = getSupportedMimeType();
+      const mimeType =
+        mimeTypes.find(
+          (type) =>
+            typeof MediaRecorder !== "undefined" &&
+            MediaRecorder.isTypeSupported(type)
+        ) || "";
+
       const options: MediaRecorderOptions = {
         audioBitsPerSecond: 128000,
       };
+
       if (mimeType) {
         options.mimeType = mimeType;
       }
 
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
+      const recorder = new MediaRecorder(stream, options);
 
-      mediaRecorder.ondataavailable = (event) => {
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const finalMime = mediaRecorder.mimeType || mimeType || "audio/webm";
-        const blob = new Blob(audioChunksRef.current, { type: finalMime });
+      recorder.onstop = () => {
+        const actualMimeType =
+          recorder.mimeType ||
+          mimeType ||
+          "audio/webm";
+
+        const blob = new Blob(audioChunksRef.current, {
+          type: actualMimeType,
+        });
+
+        if (blob.size === 0) {
+          setErrorMessage("فایل صوتی خالی است.");
+          return;
+        }
+
         audioBlobRef.current = blob;
+
         setAudioSizeBytes(blob.size);
+
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
 
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
+        // ضبط تمام شده
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
       };
 
+      recorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        setErrorMessage("خطا هنگام ضبط صدا.");
+      };
+
+      // Visualizer فقط برای نمایش است
       try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioCtx =
+          window.AudioContext ||
+          (window as any).webkitAudioContext;
+
         if (AudioCtx) {
-          // Pass the exact stream track sample rate to AudioContext to prevent resampler pitch distortion
-          const audioCtx = trackSampleRate ? new AudioCtx({ sampleRate: trackSampleRate }) : new AudioCtx();
+          const audioCtx = new AudioCtx();
+
           audioContextRef.current = audioCtx;
-          const source = audioCtx.createMediaStreamSource(stream);
-          const analyser = audioCtx.createAnalyser();
+
+          const source =
+            audioCtx.createMediaStreamSource(stream);
+
+          const analyser =
+            audioCtx.createAnalyser();
+
           analyser.fftSize = 32;
           analyser.smoothingTimeConstant = 0.8;
+
           source.connect(analyser);
+
           analyserRef.current = analyser;
+
           drawWaveform();
         }
-      } catch (ctxErr) {
-        console.warn("Waveform audio context warning:", ctxErr);
+      } catch (err) {
+        console.warn("Visualizer error:", err);
       }
 
-      mediaRecorder.start(1000);
+      // خیلی مهم:
+      // بدون timeslice
+      recorder.start();
+
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);
 
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (e: any) {
-      console.error("Microphone access error:", e);
+
+    } catch (error: any) {
+      console.error("Microphone access error:", error);
+
       setErrorMessage(
-        e.message || "دسترسی به میکروفون تایید نشد."
+        error?.message || "دسترسی به میکروفون تایید نشد."
       );
     }
   };
@@ -182,7 +231,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
 
       for (let i = 0; i < bufferLength; i++) {
         const barHeight = Math.max(3, (dataArray[i] / 255) * canvas.height * 0.9);
-        ctx.fillStyle = isPaused ? "#f59e0b" : "#3b82f6";
+        ctx.fillStyle = isPaused ? "#f59e0b" : "#00b8db";
         const y = (canvas.height - barHeight) / 2;
         ctx.fillRect(x, y, barWidth - 1, barHeight);
         x += barWidth;
@@ -215,7 +264,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       clearInterval(timerRef.current);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => { });
         audioContextRef.current = null;
       }
     }
@@ -235,7 +284,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
     clearInterval(timerRef.current);
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current.close().catch(() => { });
       audioContextRef.current = null;
     }
     setIsRecording(false);
@@ -290,7 +339,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="w-full z-40 bg-[var(--sidebar)] border border-blue-500/30 rounded-2xl px-3 py-2 shadow-xl backdrop-blur-xl max-h-[70px] h-[66px] flex items-center justify-between gap-2 text-[var(--text-primary)] max-w-3xl mx-auto my-1 flex-nowrap overflow-x-auto">
+    <div className="w-full z-40 bg-[var(--sidebar)] border border-cyan-500/30 rounded-2xl px-3 py-2 shadow-xl backdrop-blur-xl max-h-[70px] h-[66px] flex items-center justify-between gap-2 text-[var(--text-primary)] max-w-3xl mx-auto my-1 flex-nowrap overflow-x-auto">
       {errorMessage ? (
         <div className="flex items-center gap-2 text-rose-500 text-xs w-full justify-between">
           <div className="flex items-center gap-1.5">
@@ -305,7 +354,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
         <>
           {/* 🎤 Icon & Waveform */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 shrink-0">
+            <div className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 shrink-0">
               <Mic className={`w-4 h-4 ${isRecording && !isPaused ? "animate-pulse text-rose-500" : ""}`} />
             </div>
             <div className="w-20 sm:w-28 h-7 flex items-center shrink-0 bg-[var(--list)] border border-[var(--border)] rounded-lg px-1">
@@ -314,7 +363,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
           </div>
 
           {/* Timer */}
-          <div className="font-mono text-xs font-bold text-blue-500 shrink-0 px-1">
+          <div className="font-mono text-xs font-bold text-cyan-500 shrink-0 px-1">
             {formatTimer(recordingTime)}
           </div>
 
@@ -325,7 +374,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="توضیحات..."
-              className="w-full bg-[var(--list)] border border-[var(--border)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-blue-500 text-right truncate"
+              className="w-full bg-[var(--list)] border border-[var(--border)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-cyan-500 text-right truncate"
             />
           </div>
 
@@ -349,11 +398,10 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
               <button
                 type="button"
                 onClick={togglePauseResume}
-                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                  isPaused
-                    ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
-                    : "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                }`}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center justify-center transition-all cursor-pointer shrink-0 ${isPaused
+                  ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+                  : "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                  }`}
                 title={isPaused ? "ادامه" : "مکث"}
               >
                 {isPaused ? <Play className="w-4 h-4 fill-current" /> : <Pause className="w-4 h-4 fill-current" />}
@@ -376,10 +424,10 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
             <button
               type="button"
               onClick={handleSendFinal}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-500/20 transition-all flex items-center gap-1 cursor-pointer shrink-0"
               title="ارسال"
             >
-              <Send className="w-4 h-4 rotate-180" />
+              <Send className="w-4 h-4" />
               <span className="hidden sm:inline">ارسال</span>
             </button>
           </div>
