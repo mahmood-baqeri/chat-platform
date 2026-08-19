@@ -1,22 +1,30 @@
+// web/server/db/index.ts
+
 import "dotenv/config";
 import initSqlJs, { Database as SqlJsDatabase } from "sql.js";
 import fs from "fs";
 import path from "path";
-import { queryMySQL, executeMySQL, runMySQLMigrations } from "./mysql.js";
+import { queryMySQL, executeMySQL, runMySQLMigrations, getEnvironmentInfo } from "./mysql.js";
 import { queryPostgreSQL, executePostgreSQL, runPostgresMigrations } from "./postgres.js";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 
 const dbPath = path.join(process.cwd(), "data", "messenger.sqlite");
 let dbInstance: SqlJsDatabase | null = null;
 let dbInitialized = false;
-let migrationDone = false; // جلوگیری از اجرای مجدد
+let migrationDone = false;
 
 export async function ensureDbInitialized(): Promise<void> {
   if (dbInitialized) return;
   dbInitialized = true;
 
   const dbType = (process.env.DB_TYPE || "sqlite").toLowerCase();
+  const envInfo = getEnvironmentInfo();
+  
+  console.log(`🌍 Environment: ${envInfo.environment}`);
+  console.log(`📊 Database Type: ${dbType}`);
+
   if (dbType === "mysql") {
-    console.log("🔌 Initializing MySQL database...");
+    console.log(`🔌 Initializing MySQL database for ${envInfo.isProduction ? 'Production' : 'Development'}...`);
     await runMySQLMigrations();
   } else if (dbType === "postgres" || dbType === "postgresql") {
     console.log("🔌 Initializing PostgreSQL database...");
@@ -30,10 +38,8 @@ export async function ensureDbInitialized(): Promise<void> {
 function initTables(db: SqlJsDatabase) {
   console.log("📊 Creating tables...");
 
-  // 🔥 ثبت تابع سفارشی برای زمان تهران
   db.create_function("tehran_now", () => {
     const now = new Date();
-    // تنظیم به منطقه زمانی تهران (UTC+3:30)
     const tehranTime = new Date(now.getTime() + (3.5 * 60 * 60 * 1000));
     return tehranTime.toISOString().slice(0, 19).replace("T", " ");
   });
@@ -41,11 +47,9 @@ function initTables(db: SqlJsDatabase) {
   db.create_function("tehran_timestamp", (timestamp: string) => {
     if (!timestamp) return null;
     const date = new Date(timestamp);
-    // تبدیل به تهران
     const tehranTime = new Date(date.getTime() + (3.5 * 60 * 60 * 1000));
     return tehranTime.toISOString().slice(0, 19).replace("T", " ");
   });
-
 
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -90,7 +94,7 @@ function initTables(db: SqlJsDatabase) {
       unread_count INTEGER DEFAULT 0,
       member_count INTEGER DEFAULT 0,
       owner_id INTEGER,
-      created_at TEXT DEFAULT  (tehran_now())
+      created_at TEXT DEFAULT (tehran_now())
     );
 
     CREATE TABLE IF NOT EXISTS room_members (
@@ -98,7 +102,7 @@ function initTables(db: SqlJsDatabase) {
       room_id TEXT NOT NULL,
       user_id INTEGER NOT NULL,
       role TEXT DEFAULT 'user',
-      joined_at TEXT DEFAULT  (tehran_now()),
+      joined_at TEXT DEFAULT (tehran_now()),
       is_muted INTEGER DEFAULT 0,
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -164,7 +168,7 @@ function initTables(db: SqlJsDatabase) {
       user_id INTEGER NOT NULL,
       endpoint TEXT NOT NULL UNIQUE,
       subscription_json TEXT NOT NULL,
-      created_at TEXT DEFAULT  (tehran_now()),
+      created_at TEXT DEFAULT (tehran_now()),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -195,58 +199,8 @@ function initTables(db: SqlJsDatabase) {
 
   console.log("✅ Tables ready!");
 
-  // فقط یکبار Seed اجرا میشه
   if (!migrationDone) {
-    seedDatabase(db);
     migrationDone = true;
-  }
-}
-
-function seedDatabase(db: SqlJsDatabase) {
-  try {
-    // چک کردن وجود کاربران
-    const result = db.exec("SELECT COUNT(*) as count FROM users");
-    const count = result[0]?.values?.[0]?.[0] || 0;
-
-    if (count === 0) {
-      console.log("🌱 Seeding initial data...");
-
-      // Seed Users
-      const users = [
-        ['09121111111', 'smb', 'محمود', 'باقری', 'محمود باقری', 'https://i.pravatar.cc/150?img=1', 'مدیر ارشد سیستم', 'online', 'owner'],
-        ['09122222222', 'kazem', 'حسین', 'کاظمیان', 'حسین کاظمیان', 'https://i.pravatar.cc/150?img=2', 'مدیر فنی', 'online', 'admin'],
-        ['09123333333', 'nasr', 'مصطفی', 'نصری', 'مصطفی نصری', 'https://i.pravatar.cc/150?img=3', 'توسعه‌دهنده ارشد', 'offline', 'user'],
-        ['09124444444', 'rezaei', 'رضا', 'رضایی', 'رضا رضایی', 'https://i.pravatar.cc/150?img=4', 'مدیر پروژه', 'online', 'admin'],
-        ['09125555555', 'karimi', 'علی', 'کریمی', 'علی کریمی', 'https://i.pravatar.cc/150?img=5', 'توسعه‌دهنده بک‌اند', 'offline', 'user'],
-        ['09126666666', 'ahmadi', 'احمد', 'احمدی', 'احمد احمدی', 'https://i.pravatar.cc/150?img=6', 'طراح UI/UX', 'online', 'user'],
-        ['09127777777', 'mohammadi', 'محمد', 'محمدی', 'محمد محمدی', 'https://i.pravatar.cc/150?img=7', 'توسعه‌دهنده موبایل', 'offline', 'user'],
-        ['09128888888', 'hassani', 'حسن', 'حسنی', 'حسن حسنی', 'https://i.pravatar.cc/150?img=8', 'کارشناس امنیت', 'online', 'admin'],
-        ['09129999999', 'hosseini', 'سید', 'حسینی', 'سید حسینی', 'https://i.pravatar.cc/150?img=9', 'توسعه‌دهنده فول‌استک', 'offline', 'user'],
-        ['09120000000', 'farhadi', 'فرهاد', 'فرهادی', 'فرهاد فرهادی', 'https://i.pravatar.cc/150?img=10', 'کارشناس داده', 'online', 'user']
-      ];
-
-      for (const user of users) {
-        db.run(
-          `INSERT INTO users (phone, username, first_name, last_name, display_name, avatar_url, bio, status, role) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          user
-        );
-      }
-
-      // Seed System Settings
-      db.run(
-        `INSERT INTO system_settings (registration_enabled, login_enabled, otp_enabled, channels_enabled, groups_enabled, max_file_size_mb, push_policy)
-         VALUES (1, 1, 1, 1, 1, 25, 'always')`
-      );
-
-      const newCount = db.exec("SELECT COUNT(*) as count FROM users")[0]?.values?.[0]?.[0] || 0;
-      console.log(`✅ Seed completed! ${newCount} users inserted.`);
-      saveDb();
-    } else {
-      console.log(`ℹ️ Users already exist (${count} users), skipping seed.`);
-    }
-  } catch (error) {
-    console.error("❌ Error in seed:", error);
   }
 }
 
@@ -307,6 +261,7 @@ export function executeRun(db: SqlJsDatabase, sql: string, params: any[] = []) {
   saveDb();
 }
 
+// ✅ این تابع رو به این شکل تغییر بده
 export async function dbQuery(sql: string, params: any[] = []): Promise<any[]> {
   const dbType = (process.env.DB_TYPE || "sqlite").toLowerCase();
   await ensureDbInitialized();
@@ -321,16 +276,21 @@ export async function dbQuery(sql: string, params: any[] = []): Promise<any[]> {
   }
 }
 
-export async function dbExecute(sql: string, params: any[] = []): Promise<void> {
+// ✅ این تابع رو به این شکل تغییر بده
+export async function dbExecute(sql: string, params: any[] = []): Promise<any> {
   const dbType = (process.env.DB_TYPE || "sqlite").toLowerCase();
   await ensureDbInitialized();
 
   if (dbType === "mysql") {
-    await executeMySQL(sql, params);
+    return await executeMySQL(sql, params);
   } else if (dbType === "postgres" || dbType === "postgresql") {
-    await executePostgreSQL(sql, params);
+    return await executePostgreSQL(sql, params);
   } else {
     const db = await getDbInstance();
-    executeRun(db, sql, params);
+    return executeRun(db, sql, params);
   }
+}
+
+export function getCurrentEnvironment() {
+  return getEnvironmentInfo();
 }
