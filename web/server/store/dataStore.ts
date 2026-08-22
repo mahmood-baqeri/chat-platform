@@ -413,7 +413,7 @@ export async function loadDataFromDB() {
         avatarUrl: u.avatar_url,
         bio: u.bio || "",
         status: (u.status as any) || "offline",
-        lastSeen: u.last_seen || "چند لحظه پیش",
+        lastSeen: u.last_seen || null,
         role: (u.role as UserRole) || "user",
         isBanned: !!u.is_banned,
         isMuted: !!u.is_muted,
@@ -444,69 +444,6 @@ export async function loadDataFromDB() {
       createdAt: r.created_at,
       updatedAt: r.updated_at
     }));
-
-    // Rooms & Members
-    // const dbRooms = await dbQuery("SELECT * FROM rooms");
-    // // دریافت اعضا با نام نمایشی از جدول users
-    // const dbMembersWithUser = await dbQuery(`
-    //   SELECT 
-    //     rm.*,
-    //     u.display_name as userDisplayname
-    //   FROM room_members rm
-    //   LEFT JOIN users u ON rm.user_id = u.id
-    // `);
-
-    // if (dbRooms.length > 0) {
-    //   // ساخت Map از userId به displayName
-    //   const userDisplayMap = new Map();
-    //   dbMembersWithUser.forEach((m: any) => {
-    //     if (m.user_id && m.userDisplayname) {
-    //       userDisplayMap.set(String(m.user_id), m.userDisplayname);
-    //     }
-    //   });
-    
-    //   chats = dbRooms.map((r: any) => {
-    //     // فیلتر کردن اعضای این روم و گرفتن نام نمایشی
-    //     const roomM = dbMembersWithUser
-    //       .filter((m: any) => String(m.room_id) === String(r.id))
-    //       .map((m: any) => ({
-    //         userId: m.user_id,
-    //         userDisplayname: m.userDisplayname || String(m.user_id),
-    //         role: m.role || "user",
-    //         joinedAt: m.joined_at,
-    //         isMuted: !!m.is_muted
-    //       }));
-
-    //     // اضافه کردن owner
-    //     if (r.owner_id && !roomM.some((m: any) => String(m.userId) === String(r.owner_id))) {
-    //       roomM.push({
-    //         userId: r.owner_id,
-    //         userDisplayname: userDisplayMap.get(String(r.owner_id)) || String(r.owner_id),
-    //         role: "owner",
-    //         joinedAt: r.created_at || new Date().toISOString(),
-    //         isMuted: false
-    //       });
-    //     }
-
-    //     return {
-    //       id: r.id,
-    //       type: r.type as ChatType,
-    //       title: r.title,
-    //       username: r.username || undefined,
-    //       avatarUrl: r.avatar_url,
-    //       description: r.description || "",
-    //       inviteLink: r.invite_link,
-    //       isPrivate: !!r.is_private,
-    //       isArchived: !!r.is_archived,
-    //       isPinned: !!r.is_pinned,
-    //       ownerId: r.owner_id || 1,
-    //       members: roomM,
-    //       memberCount: roomM.length || r.member_count || 1,
-    //       unreadCount: r.unread_count || 0,
-    //       createdAt: r.created_at || new Date().toISOString(),
-    //     };
-    //   });
-    // }
     
     const dbRooms = await dbQuery("SELECT * FROM rooms");
     const dbMembersWithUser = await dbQuery(`

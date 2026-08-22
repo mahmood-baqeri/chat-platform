@@ -1,3 +1,5 @@
+// web/server/endpoints/admin-endpoint.ts
+
 import express, { Request, Response } from "express";
 import {
   users,

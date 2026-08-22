@@ -1,3 +1,5 @@
+//  web/src/components/layout/Header.tsx
+
 import React from "react";
 import { useChat } from "../../store/chatContext";
 import {
@@ -22,23 +24,40 @@ export const Header: React.FC = () => {
     setShowAdminPanel,
     setShowProfileModal,
     setShowAuthModal,
+    mobileView,
   } = useChat();
 
+  // تشخیص موبایل
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // اگر در موبایل هستیم و در صفحه چت هستیم، هدر رو نشون نده
+  if (isMobile && mobileView === 'chat') {
+    return null;
+  }
+
   return (
-    <header className="h-16 bg-[var(--sidebar)] backdrop-blur-md border-b border-[var(--border)] text-[var(--text-primary)] px-4 flex items-center justify-between z-30 shrink-0 transition-colors duration-200">
+    <header className="h-16 bg-[var(--sidebar)] backdrop-blur-md border-b border-[var(--border)] text-[var(--text-primary)] sm:px-4 px-2 flex items-center justify-between z-30 shrink-0 transition-colors duration-200">
       {/* Brand & Status */}
       <div className="flex items-center gap-3">
-        <div className="w-35 h-10">
-          <ShowImage src={LogoPhoto} className="w-35 h-10" />
+        <div className="w-20 sm:w-32 sm:h-10 h-8">
+          <ShowImage src={LogoPhoto} className="w-20 sm:w-32 sm:h-10 h-8" />
         </div>
         <div>
           <h1 className="font-bold text-base tracking-tight flex items-center gap-2">
             <span>فیــــدار</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 border border-cyan-500/20 font-vazir">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 border border-cyan-500/20 font-vazir  hidden sm:block">
               v2.5 Pro
             </span>
           </h1>
-          <p className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
+          <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
             <span>آنلاین</span>
           </p>
@@ -74,8 +93,8 @@ export const Header: React.FC = () => {
                 window.history.pushState({}, "", "/admin");
               } catch (e) { }
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-all shadow-sm cursor-pointer"
-            title="ورود به پنل مدیریت (/admin)"
+            className="flex items-center gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-medium hover:bg-amber-500/20 transition-all shadow-sm cursor-pointer"
+            title="ورود به پنل مدیریت"
           >
             <ShieldAlert className="w-4 h-4" />
             <span className="hidden sm:inline">پنل مدیریت</span>
@@ -84,7 +103,7 @@ export const Header: React.FC = () => {
 
         {/* User Profile Button */}
         {currentUser ? (
-          <div className="flex items-center gap-2 mr-2 pl-1 border-r border-[var(--border)] pr-2">
+          <div className="flex items-center gap-2 pl-1 border-r border-[var(--border)] pr-2">
             <button
               onClick={() => setShowProfileModal(true)}
               className="flex items-center gap-2 group p-1 rounded-xl hover:bg-[var(--list)] transition-all text-right cursor-pointer"

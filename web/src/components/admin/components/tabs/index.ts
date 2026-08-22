@@ -1,0 +1,12 @@
+export { OverviewTab } from "./OverviewTab";
+export { UsersTab } from "./UsersTab";
+export { RoomsTab } from "./RoomsTab";
+export { ForbiddenWordsTab } from "./ForbiddenWordsTab";
+export { PermissionsTab } from "./PermissionsTab";
+export { MessagesTab } from "./MessagesTab";
+export { FilesTab } from "./FilesTab";
+export { SmsSettingsTab } from "./SmsSettingsTab";
+export { PushNotificationTab } from "./PushNotificationTab";
+export { SystemTogglesTab } from "./SystemTogglesTab";
+export { LogsTab } from "./LogsTab";
+export { DatabaseSettingsTab } from "./DatabaseSettingsTab";

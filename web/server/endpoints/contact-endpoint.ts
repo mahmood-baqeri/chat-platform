@@ -37,7 +37,7 @@ router.get("/contacts", async (req: Request, res: Response) => {
     const isOnline = u.status === 'online';
     
     // ✅ محاسبه lastSeen از فیلد last_seen دیتابیس
-    let lastSeenText = "چند لحظه پیش";
+    let lastSeenText = "خیلی وقت پیش";
     if (u.lastSeen) {
       const lastSeenDate = new Date(u.lastSeen);
       const now = new Date();
@@ -64,6 +64,8 @@ router.get("/contacts", async (req: Request, res: Response) => {
       userId,
       contactUserId: u.id,
       customName: customContact?.customName || u.displayName || u.phone || "کاربر",
+      firstName: u.firstName,
+      lastName: u.lastName,
       displayName: u.displayName || customContact?.customName || u.phone || "کاربر",
       avatarUrl: u.avatarUrl || AvatarPhoto,
       status: u.status || "offline", // استفاده از فیلد status دیتابیس

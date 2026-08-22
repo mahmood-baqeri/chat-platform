@@ -115,7 +115,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                )}
 
                {isLoadingMoreMessages ? (
-                    <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-blue-500 font-medium">
+                    <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-cyan-500 font-medium">
                          <Loader2 className="w-4 h-4 animate-spin" />
                          <span>در حال دریافت پیام‌های قدیمی‌تر...</span>
                     </div>
@@ -123,7 +123,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                     <div className="flex justify-center my-2">
                          <button
                               onClick={onLoadMore}
-                              className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                              className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                          >
                               <ChevronUp className="w-3.5 h-3.5" />
                               <span>بارگذاری پیام‌های قدیمی‌تر</span>
@@ -133,7 +133,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
 
                {messages.length === 0 ? (
                     <div className="py-20 text-center text-[var(--text-secondary)]">
-                         <Sparkles className="w-10 h-10 mx-auto mb-2 text-blue-500/40" />
+                         <Sparkles className="w-10 h-10 mx-auto mb-2 text-cyan-500/40" />
                          <p className="text-xs font-semibold text-[var(--text-primary)]">پیامی ثبت نشده است</p>
                          <p className="text-[11px] text-[var(--text-secondary)] mt-1">نخستین پیام این گفتگو را بنویسید.</p>
                     </div>
@@ -143,7 +143,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                               return (
                                    <div key={`date-${item.label}-${index}`} className="flex items-center justify-center my-4 sticky top-2 z-10 pointer-events-none">
                                         <span className="bg-[var(--sidebar)] text-[var(--text-secondary)] border border-[var(--border)] px-3.5 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 min-w-[110px] justify-center text-center opacity-95">
-                                             <Calendar className="w-3 h-3 text-blue-500 shrink-0" />
+                                             <Calendar className="w-3 h-3 text-cyan-500 shrink-0" />
                                              <span>{item.label}</span>
                                         </span>
                                    </div>
@@ -156,7 +156,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                )}
 
                {isLoadingNewerMessages ? (
-                    <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-blue-500 font-medium">
+                    <div className="flex items-center justify-center gap-2 py-2.5 text-xs text-cyan-500 font-medium">
                          <Loader2 className="w-4 h-4 animate-spin" />
                          <span>در حال دریافت پیام‌های جدیدتر...</span>
                     </div>
@@ -164,7 +164,7 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                     <div className="flex justify-center my-2">
                          <button
                               onClick={onLoadNewer}
-                              className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                              className="px-3.5 py-1.5 rounded-full bg-[var(--sidebar)] border border-[var(--border)] text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                          >
                               <ChevronDown className="w-3.5 h-3.5" />
                               <span>بارگذاری پیام‌های جدیدتر</span>
@@ -175,11 +175,11 @@ export const ChatPageMessages: React.FC<ChatMessagesProps> = ({
                {activeTypingList.length > 0 && (
                     <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] py-2 px-3.5 rounded-2xl bg-[var(--sidebar)] border border-[var(--border)] w-fit animate-in fade-in duration-200 my-2 shadow-sm">
                          <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: "300ms" }} />
                          </div>
-                         <span className="text-[11px] font-medium text-blue-400">
+                         <span className="text-[11px] font-medium text-cyan-400">
                               {activeTypingList.join("، ")} در حال نوشتن...
                          </span>
                     </div>

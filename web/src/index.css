@@ -106,14 +106,6 @@ h5,
 h6,
 div,
 span {
-  /* font-family: Yekan Bakh FaNum ExtraCondensed !important;
-      font-family: Yekan Bakh FaNum ExtraExpanded !important; */
-  /* font-family: Yekan Bakh FaNum Expanded !important; */
-  /* font-family: Yekan Bakh FaNum SemiExpanded !important; */
-  /* font-family: Yekan Bakh FaNum !important; */
-  /* font-family: Yekan Bakh ExtraCondensed !important; */
-  /* font-family: Yekan Bakh Condensed !important; */
-  /* font-family: Yekan Bakh SemiCondensed !important; */
   font-family: Yekan Bakh FaNum, Yekan Bakh;
 }
 
@@ -121,3 +113,45 @@ span {
 .font-vazir {
   font-family: Vazirmatn, system-ui, -apple-system, sans-serif !important;
 }
+
+
+
+/*
+
+کلاس‌های عرض استاندارد:
+
+w-0      /* width: 0px 
+w-1      /* width: 4px 
+w-2      /* width: 8px 
+w-4      /* width: 16px 
+w-8      /* width: 32px 
+w-10     /* width: 40px 
+w-12     /* width: 48px 
+w-16     /* width: 64px 
+w-20     /* width: 80px 
+w-24     /* width: 96px 
+w-32     /* width: 128px 
+w-40     /* width: 160px 
+w-48     /* width: 192px 
+w-56     /* width: 224px 
+w-64     /* width: 256px 
+w-72     /* width: 288px
+w-80     /* width: 320px 
+w-96     /* width: 384px 
+w-auto   /* width: auto 
+w-full   /* width: 100% 
+w-screen /* width: 100vw 
+w-min    /* width: min-content 
+w-max    /* width: max-content 
+w-fit    width: fit-content
+
+
+sm  ,  md  ,  lg   ,   xl  ,  2xl
+کلاس‌های عرض با breakpoints (ریسپانسیو):
+sm:w-20     /* width: 80px در سایز sm و بالاتر
+md:w-20     /* width: 80px در سایز md و بالاتر
+lg:w-20     /* width: 80px در سایز lg و بالاتر
+xl:w-20     /* width: 80px در سایز xl و بالاتر
+2xl:w-20    /* width: 80px در سایز 2xl و بالاتر
+
+*/

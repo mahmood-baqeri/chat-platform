@@ -85,17 +85,11 @@ export const ChatPageHeader: React.FC<ChatHeaderProps> = ({
                </div>
 
                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <button
-                         onClick={onShowSearchModal}
-                         className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-cyan-500 hover:bg-[var(--list)] transition-colors cursor-pointer"
-                    >
+                    <button onClick={onShowSearchModal} className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-cyan-500 hover:bg-[var(--list)] transition-colors cursor-pointer">
                          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
 
-                    <button
-                         onClick={onShowPinnedModal}
-                         className="relative p-2 rounded-xl text-[var(--text-secondary)] hover:text-amber-500 hover:bg-amber-500/10 transition-colors hidden sm:flex cursor-pointer"
-                    >
+                    <button onClick={onShowPinnedModal} className="relative p-2 rounded-xl text-[var(--text-secondary)] hover:text-amber-500 hover:bg-amber-500/10 transition-colors hidden sm:flex cursor-pointer">
                          <Pin className="w-4 h-4" />
                          {pinnedMessages.length > 0 && (
                               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-bold text-[9px] flex items-center justify-center border border-[var(--sidebar)]">
@@ -104,17 +98,11 @@ export const ChatPageHeader: React.FC<ChatHeaderProps> = ({
                          )}
                     </button>
 
-                    <button
-                         onClick={onShowGroupDrawer}
-                         className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--list)] transition-colors hidden sm:flex cursor-pointer"
-                    >
+                    <button onClick={onShowGroupDrawer} className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--list)] transition-colors hidden sm:flex cursor-pointer">
                          <Info className="w-4 h-4" />
                     </button>
 
-                    <button
-                         onClick={onShowMobileBottomSheet}
-                         className="sm:hidden p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--list)] transition-colors cursor-pointer"
-                    >
+                    <button onClick={onShowMobileBottomSheet} className="sm:hidden p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--list)] transition-colors cursor-pointer" >
                          <MoreVertical className="w-5 h-5" />
                     </button>
                </div>

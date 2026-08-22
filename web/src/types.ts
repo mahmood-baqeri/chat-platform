@@ -1,3 +1,6 @@
+//  web/src/types.ts
+
+
 /**
  * Core Data Models & System Types for Chat Platform
  */

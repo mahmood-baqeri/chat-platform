@@ -79,9 +79,9 @@ export const GroupInfoDrawer: React.FC = () => {
                   className="flex items-center justify-between p-2 rounded-xl border border-[var(--border)]"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold text-xs flex items-center justify-center">
+                    {/* <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold text-xs flex items-center justify-center">
                       {String(m.userId).substring(0, 2).toUpperCase()}
-                    </div>
+                    </div> */}
                     <div>
                       <p className="text-xs font-semibold text-[var(--text-primary)]">
                         {String(m.userId) === String(currentUser?.id) ? "شما" : m.userDisplayname}
