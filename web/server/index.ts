@@ -14,13 +14,15 @@ import { createWebSocketServer } from "./websocket/wsServer.js";
 import { PORT, UPLOADS_DIR } from "./config.js";
 
 import authEndpoint from "./endpoints/auth-endpoint.js";
-import chatEndpoint from "./endpoints/chat-endpoint.js";
+// import chatEndpoint from "./endpoints/chat/chat-endpoint.js";
 import uploadEndpoint from "./endpoints/upload-endpoint.js";
-import adminEndpoint from "./endpoints/admin-endpoint.js";
+// import adminEndpoint from "./endpoints/admin-endpoint.js";
 import dbEndpoint from "./endpoints/db-endpoint.js";
 import pushEndpoint from "./endpoints/push-endpoint.js";
 import contactEndpoint from "./endpoints/contact-endpoint.js";
 import updateUsersEndpoint from "./endpoints/updateusers-endpoint.ts";
+import adminEndpoint from "./endpoints/admin/routes.ts";
+import chatEndpoint from "./endpoints/chat/index.js";
 
 const currentDir = process.cwd();
 
@@ -81,14 +83,14 @@ export async function startServer() {
   createWebSocketServer(server);
 
   // Register API Route Modules
+  app.use("/api/admin", adminEndpoint);
   app.use("/api", authEndpoint);
   app.use("/api", chatEndpoint);
   app.use("/api", uploadEndpoint);
-  app.use("/api", adminEndpoint);
   app.use("/api", dbEndpoint);
   app.use("/api", pushEndpoint);
   app.use("/api", contactEndpoint);
-    app.use("/", updateUsersEndpoint); 
+  app.use("/", updateUsersEndpoint); 
 
   // Vite Middleware in Development Mode
   if (process.env.NODE_ENV !== "production") {

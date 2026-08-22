@@ -123,55 +123,6 @@ export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
   return formatted;
 }
 
-// export function formatChatForUser(chat: Chat, currentUserId: string): Chat {
-//   if (!chat) return chat;
-
-//   const chatMsgs = messages.filter(
-//     (m) =>
-//       String(m.chatId) === String(chat.id) ||
-//       String(m.chatId).replace(/^chat-/, "") === String(chat.id).replace(/^chat-/, "")
-//   );
-
-//   const userUnreadCount = chatMsgs.filter((m) => {
-//     if (String(m.senderId) === String(currentUserId)) return false;
-//     const isSeenByMe =
-//       (m.seenBy && m.seenBy.some((s) => String(s.userId) === String(currentUserId))) ||
-//       messageSeens.some(
-//         (s) => String(s.messageId) === String(m.id) && String(s.userId) === String(currentUserId)
-//       );
-//     return !isSeenByMe;
-//   }).length;
-
-//   let formatted: Chat = {
-//     ...chat,
-//     unreadCount: userUnreadCount,
-//   };
-
-//   if (chat.type === "direct") {
-//     const otherMember =
-//       (chat.members || []).find((m) => String(m.userId) !== String(currentUserId)) ||
-//       (chat.members || []).find((m) => String(m.userId) === String(currentUserId));
-//     if (otherMember) {
-//       const targetUser = users.find((u) => String(u.id) === String(otherMember.userId));
-//       if (targetUser) {
-//         const displayName =
-//           targetUser.displayName ||
-//           `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() ||
-//           targetUser.personCode ||
-//           chat.title;
-//         formatted = {
-//           ...formatted,
-//           title: displayName,
-//           avatarUrl: targetUser.avatarUrl || chat.avatarUrl,
-//           username: targetUser.personCode || chat.username,
-//         };
-//       }
-//     }
-//   }
-
-//   return formatted;
-// }
-
 // ============================================
 // HEALTH CHECK
 // ============================================
