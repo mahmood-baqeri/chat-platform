@@ -43,7 +43,9 @@ class MyApp extends StatelessWidget {
       if (type == 'message:new' && event['message'] != null) {
         final msg = MessageModel.fromJson(event['message']);
         chatBloc.add(ReceiveRealtimeMessageEvent(msg));
-      } else if (type == 'message:updated' || type == 'message:deleted' || type == 'message:reaction_updated') {
+      } else if (type == 'message:updated' ||
+          type == 'message:deleted' ||
+          type == 'message:reaction_updated') {
         chatBloc.add(ReceiveRealtimeUpdateEvent(type: type, data: event));
       }
     });
@@ -57,7 +59,7 @@ class MyApp extends StatelessWidget {
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, themeState) {
           return MaterialApp(
-            title: 'پیام‌رسان هوشمند',
+            title: 'فیــــدار',
             debugShowCheckedModeBanner: false,
             themeMode: themeState.isDark ? ThemeMode.dark : ThemeMode.light,
             theme: AppTheme.lightTheme,
